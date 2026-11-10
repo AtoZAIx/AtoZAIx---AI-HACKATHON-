@@ -1,0 +1,465 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * PayPal Nexus design system: quiet luxury.
+ * Warm ivory surfaces, graphite ink, champagne-gold detailing and a serif
+ * display voice; deep sapphire is the brand accent. Motion is slow and
+ * soft, and is switched off for people who ask for reduced motion.
+ * Status hues are reserved for state and never used for identity.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-geist-sans);
+  --font-display: var(--font-display), ui-serif, Georgia, serif;
+
+  --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-gold-soft: var(--gold-soft);
+  --color-ivory: var(--ivory);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-platinum: var(--platinum);
+  --color-graphite: var(--graphite);
+
+  --color-success: var(--success);
+  --color-success-ink: var(--success-ink);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-ink: var(--warning-ink);
+  --color-warning-soft: var(--warning-soft);
+  --color-error: var(--error);
+  --color-error-ink: var(--error-ink);
+  --color-error-soft: var(--error-soft);
+
+  --color-agent-buyer: var(--agent-buyer);
+  --color-agent-coordinator: var(--agent-coordinator);
+  --color-agent-atelier: var(--agent-atelier);
+  --color-agent-bolt: var(--agent-bolt);
+  --color-agent-cove: var(--agent-cove);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* 14px controls, ~20px cards */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.3);
+  --radius-2xl: calc(var(--radius) * 1.45);
+  --radius-3xl: calc(var(--radius) * 1.8);
+  --radius-4xl: calc(var(--radius) * 2.2);
+
+  --shadow-card: 0 1px 1px rgb(40 30 10 / 0.03), 0 2px 6px -2px rgb(40 30 10 / 0.05), 0 12px 32px -18px rgb(40 30 10 / 0.12);
+  --shadow-raised: 0 1px 2px rgb(40 30 10 / 0.04), 0 18px 40px -16px rgb(40 30 10 / 0.18);
+  --shadow-float: 0 24px 60px -20px rgb(20 15 5 / 0.3);
+
+  --animate-rise: nx-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade: nx-fade 0.8s ease both;
+}
+
+:root {
+  --white: #ffffff;
+  --ivory: #f7f5f0;
+  --platinum: #f7f5f0;
+  --graphite: #141414;
+
+  /* Champagne gold: decorative strokes and fills; gold-ink for text (6.6:1 on white). */
+  --gold: #b8955a;
+  --gold-ink: #7a5a22;
+  --gold-soft: #f5ecdb;
+
+  --background: var(--ivory);
+  --foreground: var(--graphite);
+  --card: #fffefc;
+  --card-foreground: var(--graphite);
+  --popover: #fffefc;
+  --popover-foreground: var(--graphite);
+
+  /* Primary actions are graphite; sapphire is the brand accent, gold the detailing. */
+  --primary: var(--graphite);
+  --primary-foreground: var(--white);
+  --secondary: #f1eee7;
+  --secondary-foreground: var(--graphite);
+  --muted: #f1eee7;
+  /* Warm grey, dark enough for WCAG AA small text on white (6.2:1) and on #f1eee7 (5.3:1). */
+  --muted-foreground: #5f5c55;
+  --accent: #eef2f8;
+  --accent-foreground: #1b3d6e;
+  --destructive: #dc5555;
+  --border: #e9e4d9;
+  --input: #e2dccf;
+  --ring: #24508f;
+
+  /* Deep sapphire: 8.2:1 on white. brand-ink for text on tints (10:1 on brand-soft). */
+  --brand: #24508f;
+  --brand-soft: #e7edf6;
+  --brand-ink: #1b3d6e;
+
+  --success: #16a36a;
+  --success-ink: #0e7a4e;
+  --success-soft: #e7f6ef;
+  --warning: #d99a32;
+  --warning-ink: #8f5f12;
+  --warning-soft: #fbf3e4;
+  --error: #dc5555;
+  --error-ink: #b33b3b;
+  --error-soft: #fcecec;
+
+  /* Agent identity. Merchants validated as a categorical set (dataviz validator, light). */
+  --agent-buyer: #a8772a;
+  --agent-coordinator: #52525b;
+  --agent-atelier: #24508f;
+  --agent-bolt: #0891b2;
+  --agent-cove: #be185d;
+
+  /* Validated categorical set (dataviz validator, light, white and ivory, all pairs): gold, sapphire, cyan, rose. */
+  --chart-1: #a8772a;
+  --chart-2: #24508f;
+  --chart-3: #0891b2;
+  --chart-4: #be185d;
+  --chart-5: #52525b;
+
+  --radius: 0.875rem;
+
+  --sidebar: #fffefc;
+  --sidebar-foreground: var(--graphite);
+  --sidebar-primary: var(--graphite);
+  --sidebar-primary-foreground: var(--white);
+  --sidebar-accent: var(--platinum);
+  --sidebar-accent-foreground: var(--graphite);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--brand);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "cv11";
+    /* Soft champagne and sapphire light, fixed behind everything. */
+    background-image:
+      radial-gradient(60rem 40rem at 100% -10%, rgb(184 149 90 / 0.13), transparent 60%),
+      radial-gradient(50rem 36rem at -10% 0%, rgb(36 80 143 / 0.07), transparent 60%);
+    background-attachment: fixed;
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.015em;
+  }
+  /* Page titles speak in the display serif. It has one weight, so never fake a bold. */
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-synthesis-weight: none;
+    letter-spacing: -0.01em;
+    line-height: 1.08;
+  }
+  ::selection {
+    background: var(--gold-soft);
+    color: var(--graphite);
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .surface {
+    background: linear-gradient(180deg, #ffffff 0%, var(--card) 100%);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) * 1.3);
+    box-shadow: var(--shadow-card), inset 0 1px 0 rgb(255 255 255 / 0.9);
+    transition:
+      box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.4s ease;
+  }
+  /* Cards you can act on rise gently and catch a gold edge. */
+  .lift:hover,
+  a.surface:hover,
+  li.surface:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-raised), inset 0 1px 0 rgb(255 255 255 / 0.9);
+    border-color: color-mix(in oklab, var(--gold) 45%, var(--border));
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gold-ink);
+  }
+  .eyebrow::before {
+    content: "";
+    width: 1.25rem;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold));
+  }
+  .font-display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-synthesis-weight: none;
+  }
+  /* Gold hairline rule. */
+  .gold-rule {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: 0.6;
+  }
+  /* Champagne text for one or two display words. Decorative: used on large type only. */
+  .text-gilded {
+    background: linear-gradient(100deg, #6b4c1b 0%, #a07a3c 35%, #6b4c1b 55%, #8a6a32 100%);
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: #6b4c1b;
+    -webkit-text-fill-color: transparent;
+    animation: nx-sheen 9s ease-in-out infinite;
+  }
+  /* Page entrance: content rises into place, section by section. */
+  .page-enter > * {
+    animation: nx-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .page-enter > *:nth-child(2) { animation-delay: 60ms; }
+  .page-enter > *:nth-child(3) { animation-delay: 120ms; }
+  .page-enter > *:nth-child(4) { animation-delay: 180ms; }
+  .page-enter > *:nth-child(5) { animation-delay: 240ms; }
+  .page-enter > *:nth-child(n + 6) { animation-delay: 300ms; }
+  .stagger > * {
+    animation: nx-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .stagger > *:nth-child(2) { animation-delay: 80ms; }
+  .stagger > *:nth-child(3) { animation-delay: 160ms; }
+  .stagger > *:nth-child(4) { animation-delay: 240ms; }
+  .stagger > *:nth-child(n + 5) { animation-delay: 320ms; }
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  }
+}
+
+/* Primary buttons: graphite with a soft top light and a slow champagne sheen on hover. */
+[data-slot="button"][data-variant="default"] {
+  position: relative;
+  overflow: hidden;
+  background-image: linear-gradient(180deg, #2a2a2a 0%, #141414 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 1px 2px rgb(0 0 0 / 0.2), 0 6px 16px -8px rgb(20 15 5 / 0.45);
+}
+[data-slot="button"][data-variant="default"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(232 205 150 / 0.35) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+[data-slot="button"][data-variant="default"]:hover::after {
+  transform: translateX(120%);
+}
+[data-slot="button"][data-variant="outline"] {
+  background-color: rgb(255 255 255 / 0.7);
+}
+[data-slot="button"][data-variant="outline"]:hover {
+  border-color: color-mix(in oklab, var(--gold) 50%, var(--border));
+}
+
+/* Hero light: slow drifting champagne and sapphire glows. Decorative only. */
+.aurora {
+  position: absolute;
+  inset: -20% -10% auto;
+  height: 140%;
+  pointer-events: none;
+  z-index: -1;
+  filter: blur(60px);
+  opacity: 0.75;
+}
+.aurora::before,
+.aurora::after {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+}
+.aurora::before {
+  width: 42%;
+  aspect-ratio: 1;
+  left: 8%;
+  top: 6%;
+  background: radial-gradient(circle, rgb(36 80 143 / 0.2), transparent 65%);
+  animation: nx-drift 18s ease-in-out infinite alternate;
+}
+.aurora::after {
+  width: 46%;
+  aspect-ratio: 1;
+  right: 6%;
+  top: 0;
+  background: radial-gradient(circle, rgb(212 175 110 / 0.38), transparent 65%);
+  animation: nx-drift 22s ease-in-out infinite alternate-reverse;
+}
+
+/* Content comes into focus as it rises: blur and movement only, so text keeps full contrast from the first frame. */
+@keyframes nx-rise {
+  from {
+    transform: translateY(14px);
+    filter: blur(6px);
+  }
+  to {
+    transform: none;
+    filter: none;
+  }
+}
+@keyframes nx-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes nx-sheen {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+@keyframes nx-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(8%, 10%, 0) scale(1.15);
+  }
+}
+
+/* Savings progress: gold fill with a slow sheen passing over it. */
+.shimmer-fill {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, #a8772a, #d4b06a);
+}
+.shimmer-fill.is-done {
+  background: linear-gradient(90deg, #0e7a4e, #16a36a);
+}
+.shimmer-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.55) 50%, transparent 80%);
+  transform: translateX(-100%);
+  animation: nx-shimmer 2.8s ease-in-out 1.2s infinite;
+}
+/* "You are here" on a lock-in timeline. */
+.timeline-pulse {
+  animation: nx-pulse 2.4s ease-out infinite;
+}
+/* A goal that's fully saved glows softly. */
+.goal-done svg {
+  filter: drop-shadow(0 0 6px rgb(22 163 106 / 0.45));
+}
+/* Status chips that just turned positive pop in. */
+.pop-in {
+  animation: nx-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes nx-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  60%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+@keyframes nx-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(122 90 34 / 0.45);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 10px rgb(122 90 34 / 0);
+  }
+}
+@keyframes nx-pop {
+  from {
+    transform: scale(0.6);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* Thin, warm scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d9d2c3 transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
