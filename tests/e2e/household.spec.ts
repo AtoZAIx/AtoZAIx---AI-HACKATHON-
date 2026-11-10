@@ -53,7 +53,9 @@ test("quick setup: 4 screens, a few questions, a full plan with a live preview",
   // ₹12,00,000 over 5 years, starting at ₹3,394 and growing 5% a month (the default step-up).
   await expect(page.getByTestId("preview-goals")).toContainText("₹3,394");
   await expect(page.getByTestId("lock-rules")).toContainText("at least ₹1,000 a month");
-  await expect(page.getByTestId("lock-rules")).toContainText("No interest is added");
+  await expect(page.getByTestId("lock-rules")).toContainText("held safely in your name by a regulated partner bank");
+  await expect(page.getByTestId("lock-rules")).toContainText("the rate isn’t fixed");
+  await expect(page.getByTestId("lock-rules")).toContainText("7% wallet charge");
   await page.getByTestId("onboarding-finish").click();
 
   // The full plan, worked out from those answers.
@@ -83,7 +85,8 @@ test("quick setup: 4 screens, a few questions, a full plan with a live preview",
   await page.getByTestId("goal-lock").selectOption("24");
   await page.getByTestId("save-goal").click();
   const car = page.getByTestId("goal-card").filter({ has: page.getByText("Car", { exact: true }) });
-  await expect(car.getByTestId("vault")).toContainText("Virtual savings plan");
+  await expect(car.getByTestId("vault")).toContainText("built to keep your money safe");
+  await expect(car.getByTestId("vault")).toContainText("Today this plan is simulated");
   await expect(car.getByTestId("lock-timeline")).toContainText("Month 1 of 24");
   // Auto-save already put this month's ₹11,236 in: ₹5,00,000 − ₹11,236 is left.
   await expect(car.getByTestId("vault-to-go")).toContainText("₹4,88,764 to go over 24 months");
@@ -100,6 +103,13 @@ test("quick setup: 4 screens, a few questions, a full plan with a live preview",
   await car.getByTestId("step-up-choice").selectOption("none");
   await expect(car.getByTestId("vault-required")).toHaveText("₹20,834");
   await expect(car.getByTestId("step-up-warning")).toHaveCount(0);
+  // Breaking the lock early shows the 7% wallet charge before anything is confirmed: ₹1,11,236 balance.
+  await car.getByRole("button", { name: "Request early withdrawal" }).click();
+  const quote = car.getByTestId("early-withdrawal-quote");
+  await expect(quote).toContainText("7% wallet charge");
+  await expect(quote).toContainText("−₹7,786");
+  await expect(quote).toContainText("₹1,03,450");
+  await car.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByTestId("tracker-House")).toContainText("month 1 of 60");
   await expect(page.getByTestId("goal-floor")).toContainText("At least 10% of your income (₹8,000)");
   // The house fund is on auto-save: this month's amount was recorded on the 1st by itself.

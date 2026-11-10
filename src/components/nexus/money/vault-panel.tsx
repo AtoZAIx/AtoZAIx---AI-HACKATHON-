@@ -3,7 +3,7 @@
 import { LockIcon, RepeatIcon, TrendingUpIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { addMonths, monthLabel, stepUpOf, type Goal, type MoneyPlan, type StepUp } from "@/lib/nexus/budget";
+import { addMonths, monthLabel, stepUpOf, withdrawalQuote, type Goal, type MoneyPlan, type StepUp } from "@/lib/nexus/budget";
 import { hasActiveMandate } from "@/lib/nexus/mandate";
 import { autoSaveOf, localDay, nextAutoPay, recordContribution, requestWithdrawal, setAutoSave, setChosenMonthly, setPaused, setStepUp, vault } from "@/lib/nexus/household";
 import { CurrencyInput, useCurrency, useFmt } from "./currency";
@@ -43,11 +43,12 @@ export function VaultDetails({ goal, monthlyCents, update, now }: { goal: Goal; 
     setNote(duplicate ? "Already recorded, so it wasn’t added twice." : null);
   };
   const closed = Boolean(goal.withdrawal);
+  const quote = withdrawalQuote(v.saved, !v.matured);
 
   return (
     <div className="space-y-3 rounded-xl bg-secondary/60 p-3" data-testid="vault">
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <LockIcon className="size-3.5" aria-hidden /> Virtual savings plan: tracked in this app only. No bank or PayPal account holds or locks this money.
+        <LockIcon className="size-3.5" aria-hidden /> Locked savings, built to keep your money safe: when live, it’s held in your name by a regulated partner bank, never by PayPal Nexus. Today this plan is simulated in the app.
       </p>
       <LockTimeline
         step={Math.min(v.lockMonths, Math.max(1, monthIdx(now) - monthIdx(v.startMonth) + 1))}
@@ -99,7 +100,7 @@ export function VaultDetails({ goal, monthlyCents, update, now }: { goal: Goal; 
           {v.remaining > 0 && v.remaining < v.minimumMonthly
             ? `Only ${formatMoney(v.remaining)} is left to save, so that’s all this fund needs.`
             : `This fund takes at least ${formatMoney(v.minimumMonthly)} a month, and all your goals together get at least 10% of your income.`}{" "}
-          No interest is added: nothing is promised beyond what you put in.
+          After the lock-in ends, your savings can earn interest from our partner bank. The rate isn’t fixed or guaranteed, and nothing earns interest while the plan is simulated.
         </p>
       </div>
       {v.missedMonths.length > 0 && !goal.paused && (
@@ -195,9 +196,12 @@ export function VaultDetails({ goal, monthlyCents, update, now }: { goal: Goal; 
       )}
 
       {goal.withdrawal ? (
-        <p className="text-xs" role="status">
-          Withdrawal of {formatMoney(goal.withdrawal.amountCents)} requested on {dateLabel(goal.withdrawal.requestedAt)}
-          {goal.withdrawal.early ? " (before maturity)" : ""}. This is a simulated request: with a real savings partner, it would be verified and paid out by them.
+        <p className="text-xs" role="status" data-testid="withdrawal-done">
+          Withdrawal requested on {dateLabel(goal.withdrawal.requestedAt)}
+          {goal.withdrawal.early && goal.withdrawal.feeCents
+            ? `: balance ${formatMoney(goal.withdrawal.amountCents)}, early-withdrawal charge ${formatMoney(goal.withdrawal.feeCents)} (7%), you receive ${formatMoney(goal.withdrawal.payoutCents ?? goal.withdrawal.amountCents)}`
+            : `: you receive ${formatMoney(goal.withdrawal.payoutCents ?? goal.withdrawal.amountCents)}, no charge`}
+          . This is simulated: with a live partner bank, it would be verified and paid out by them.
         </p>
       ) : !withdrawing ? (
         <Button size="xs" variant="ghost" onClick={() => setWithdrawing(true)}>
@@ -205,7 +209,30 @@ export function VaultDetails({ goal, monthlyCents, update, now }: { goal: Goal; 
         </Button>
       ) : (
         <div className="space-y-2 rounded-lg border bg-background p-2 text-xs">
-          {!v.matured && <p className="text-warning-ink">This plan matures on {dateLabel(v.maturityDate)}. Withdrawing early ends the plan and you’ll start again for this goal.</p>}
+          {!v.matured ? (
+            <div className="space-y-1 rounded-md bg-warning-soft p-2 text-warning-ink" data-testid="early-withdrawal-quote">
+              <p>
+                This plan matures on {dateLabel(v.maturityDate)}. Breaking the lock early costs a <b>7% wallet charge</b> on your current balance, and ends the plan.
+              </p>
+              <dl className="tabular grid grid-cols-3 gap-2 text-foreground">
+                <div>
+                  <dt className="text-[11px] text-warning-ink">Balance</dt>
+                  <dd className="font-semibold">{formatMoney(quote.payoutCents + quote.feeCents)}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-warning-ink">Charge (7%)</dt>
+                  <dd className="font-semibold">−{formatMoney(quote.feeCents)}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-warning-ink">You receive</dt>
+                  <dd className="font-semibold">{formatMoney(quote.payoutCents)}</dd>
+                </div>
+              </dl>
+              <p className="text-[11px]">Wait until {dateLabel(v.maturityDate)} to withdraw with no charge.</p>
+            </div>
+          ) : (
+            <p>Your plan has matured: you receive {formatMoney(quote.payoutCents)}, with no charge.</p>
+          )}
           <label className="block space-y-1">
             <span>To confirm it’s you, type the goal name: {goal.name}</span>
             <input className="h-8 w-full rounded-lg border px-2" value={confirm} onChange={(e) => setConfirm(e.target.value)} />

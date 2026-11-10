@@ -12,6 +12,6 @@ export default defineConfig({
     include: ["tests/unit/**/*.test.ts"],
     environment: "node",
     setupFiles: ["tests/unit/setup.ts"],
-    env: { NEXUS_PACE_MS: "0", NEXUS_DISABLE_LLM: "1", NEXUS_PAYMENTS: "simulated" },
+    env: { NEXUS_PACE_MS: "0", NEXUS_DISABLE_LLM: "1", NEXUS_PAYMENTS: "simulated", NEXUS_SUPABASE: "off" },
   },
 });

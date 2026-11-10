@@ -305,7 +305,7 @@ function GoalsStep({ plan, goals, onChange }: { plan: MoneyPlan; goals: SetupGoa
         </p>
       )}
       <p className="text-[11px] text-muted-foreground" data-testid="lock-rules">
-        Each goal becomes a locked savings plan: at least <b className="text-foreground">{formatMoney(minLockMonthly(currency))} a month</b>, kept until the date you pick. No interest is added: it’s your own money, set aside. The plan is tracked in this app; no bank holds it yet.
+        Each goal becomes a locked savings plan: at least <b className="text-foreground">{formatMoney(minLockMonthly(currency))} a month</b>, kept until the date you pick. When live, it’s held safely in your name by a regulated partner bank, and after the lock-in it can earn interest from that bank (the rate isn’t fixed). Breaking the lock early costs a 7% wallet charge on the balance. Today the plan is simulated in the app.
       </p>
     </div>
   );

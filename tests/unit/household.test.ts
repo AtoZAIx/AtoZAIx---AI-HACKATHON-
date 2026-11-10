@@ -201,7 +201,8 @@ describe("household scenarios", () => {
   it("18. early withdrawal is flagged, and the ledger then closes", () => {
     let p: MoneyPlan = { ...EMPTY_PLAN, salaryCents: R(50_000), goals: [createVaultGoal({ id: "w", name: "Wedding", targetCents: R(2_00_000), savedCents: R(50_000), lockMonths: 24, priority: "high", stepUp: null }, NOW)] };
     p = requestWithdrawal(p, "w", TODAY, NOW);
-    expect(p.goals[0].withdrawal).toMatchObject({ early: true, amountCents: R(50_000), status: "requested" });
+    // Breaking the lock early: 7% wallet charge on the ₹50,000 balance.
+    expect(p.goals[0].withdrawal).toMatchObject({ early: true, amountCents: R(50_000), feeCents: R(3_500), payoutCents: R(46_500), status: "requested" });
     expect(recordContribution(p, "w", { month: NOW, date: TODAY, amountCents: R(1_000), kind: "scheduled" }).plan).toBe(p);
   });
 
@@ -362,5 +363,24 @@ describe("personal targets instead of fixed percentages", () => {
     const rows = Object.fromEntries(targetChecks(p, NOW).map((r) => [r.key, r]));
     expect(rows.lifestyle.ok).toBe(false);
     expect(rows.lifestyle.note).toMatch(/above what’s safe/);
+  });
+});
+
+describe("early-withdrawal charge", () => {
+  it("is 7% of the current balance before maturity, nothing after", async () => {
+    const { withdrawalQuote } = await import("@/lib/nexus/budget");
+    expect(withdrawalQuote(R(1_11_236), true)).toEqual({ feeCents: R(7_786), payoutCents: R(1_03_450) }); // rounded down in the customer's favour
+    expect(withdrawalQuote(R(50_000), false)).toEqual({ feeCents: 0, payoutCents: R(50_000) });
+    expect(withdrawalQuote(-5, true)).toEqual({ feeCents: 0, payoutCents: 0 });
+  });
+
+  it("is stored with the withdrawal and survives saving and loading", () => {
+    let p: MoneyPlan = { ...EMPTY_PLAN, salaryCents: R(50_000), goals: [createVaultGoal({ id: "w", name: "Bike", targetCents: R(60_000), savedCents: R(20_000), lockMonths: 12, priority: "low", stepUp: null }, NOW)] };
+    p = requestWithdrawal(p, "w", TODAY, NOW);
+    expect(p.goals[0].withdrawal).toMatchObject({ early: true, feeCents: R(1_400), payoutCents: R(18_600) });
+    expect(parsePlan(JSON.parse(JSON.stringify(p))).goals[0].withdrawal).toEqual(p.goals[0].withdrawal);
+    // At maturity there's no charge.
+    const matured = requestWithdrawal({ ...p, goals: [{ ...p.goals[0], withdrawal: null }] }, "w", "2027-12-01", "2027-12");
+    expect(matured.goals[0].withdrawal).toMatchObject({ early: false, feeCents: 0, payoutCents: R(20_000) });
   });
 });

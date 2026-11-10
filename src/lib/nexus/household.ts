@@ -8,6 +8,7 @@ import { allocateThreePriorities } from "./savings-policy";
 import {
   addMonths,
   emergencyMonthly,
+  withdrawalQuote,
   remainingAtStart,
   stepUpFirst,
   stepUpOf,
@@ -462,7 +463,7 @@ export interface VaultView {
   schedule: number[];
   /** Smallest monthly amount a locked plan accepts (₹1,000). */
   minimumMonthly: number;
-  /** What will be set aside by maturity from your own contributions. No interest is added. */
+  /** What will be set aside by maturity from your own contributions (any partner-bank interest would be on top, not promised). */
   maturityTotal: number;
 }
 
@@ -556,7 +557,9 @@ export function requestWithdrawal(plan: MoneyPlan, goalId: string, today: string
     goals: plan.goals.map((g) => {
       if (g.id !== goalId || g.withdrawal) return g;
       const v = vault(g, now, today, plan.currency);
-      return { ...g, withdrawal: { requestedAt: today, early: !v.matured, amountCents: v.saved, status: "requested" } };
+      // Breaking the lock early costs 7% of the current balance; at or after maturity there's no charge.
+      const q = withdrawalQuote(v.saved, !v.matured);
+      return { ...g, withdrawal: { requestedAt: today, early: !v.matured, amountCents: v.saved, feeCents: q.feeCents, payoutCents: q.payoutCents, status: "requested" } };
     }),
   };
 }
@@ -755,7 +758,7 @@ export function emergencyMonthsFor(familySize: number, children: number): number
 
 export type GoalKind = "house" | "car" | "bike" | "wedding" | "education" | "travel" | "gadget" | "other";
 
-/** Goals people pick in the setup. Each becomes a lock-in savings plan (minimum ₹1,000 a month, no interest). */
+/** Goals people pick in the setup. Each becomes a lock-in savings plan (minimum ₹1,000 a month). */
 export const GOAL_KINDS: Array<{ kind: GoalKind; label: string; name: string; lockMonths: number; priority: "high" | "medium" | "low" }> = [
   { kind: "house", label: "Buy a house", name: "House", lockMonths: 60, priority: "high" },
   { kind: "car", label: "Buy a car", name: "Car", lockMonths: 24, priority: "medium" },

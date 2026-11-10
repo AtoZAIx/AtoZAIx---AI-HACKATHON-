@@ -123,8 +123,23 @@ export interface Contribution {
 export interface Withdrawal {
   requestedAt: string;
   early: boolean;
+  /** The balance when the withdrawal was requested. */
   amountCents: number;
+  /** Early-withdrawal wallet charge (7% of the balance); 0 at or after maturity. */
+  feeCents?: number;
+  /** What the customer receives: balance minus the charge. */
+  payoutCents?: number;
   status: "requested" | "completed";
+}
+
+/** Breaking a lock-in before maturity costs a wallet charge of 7% of the current balance. */
+export const EARLY_WITHDRAWAL_FEE = 0.07;
+
+/** The charge and payout for withdrawing a locked fund now. No charge at or after maturity. Whole units, rounded down in the customer's favour. */
+export function withdrawalQuote(balanceCents: number, early: boolean): { feeCents: number; payoutCents: number } {
+  const balance = Math.max(0, Math.round(balanceCents) || 0);
+  const feeCents = early ? Math.floor((balance * EARLY_WITHDRAWAL_FEE) / 100) * 100 : 0;
+  return { feeCents, payoutCents: balance - feeCents };
 }
 
 export type CurrencyCode = "INR" | "USD" | "EUR" | "GBP";
@@ -594,6 +609,8 @@ export function parsePlan(raw: unknown): MoneyPlan {
                 requestedAt: str(g.withdrawal.requestedAt, 40),
                 early: g.withdrawal.early === true,
                 amountCents: cents(g.withdrawal.amountCents),
+                ...(g.withdrawal.feeCents != null ? { feeCents: cents(g.withdrawal.feeCents) } : {}),
+                ...(g.withdrawal.payoutCents != null ? { payoutCents: cents(g.withdrawal.payoutCents) } : {}),
                 status: g.withdrawal.status === "completed" ? ("completed" as const) : ("requested" as const),
               }
             : null,

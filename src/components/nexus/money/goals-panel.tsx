@@ -255,7 +255,7 @@ function GoalForm({ products, now, onAdd, onCancel }: { products: GoalProduct[];
             ))}
             <option value="none">No lock-in: pick a date</option>
           </select>
-          <span className="block text-[11px] text-muted-foreground">Locked plans need at least {formatMin} a month. No interest is added: it’s your own money, set aside until the date.</span>
+          <span className="block text-[11px] text-muted-foreground">Locked plans need at least {formatMin} a month. After the lock-in, savings can earn interest from our partner bank (not fixed). Breaking the lock early costs a 7% wallet charge.</span>
         </label>
         {lock === "none" && (
           <label className="block space-y-1 text-sm">

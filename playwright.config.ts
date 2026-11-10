@@ -33,6 +33,8 @@ export default defineConfig({
       NEXUS_DATA_DIR: join(tmpdir(), `nexus-e2e-${Date.now()}`),
       NEXUS_PACE_MS: "40",
       NEXUS_PAYMENTS: "simulated",
+      // Never touch the real Supabase project from tests.
+      NEXUS_SUPABASE: "off",
       NEXUS_ALLOW_RESET: "1",
       // Production has no dev passcode fallback, so give the test stores one.
       NEXUS_MERCHANT_PASSCODE_ATELIER: "nexus-dev",

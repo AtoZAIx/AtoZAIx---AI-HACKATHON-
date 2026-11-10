@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { appendSecurityRecord, supabaseEnabled } from "../supabase-sync";
 
 /**
  * Persistent, append-only, hash-chained security ledger.
@@ -13,9 +14,9 @@ import { join } from "node:path";
  *
  * Storage: a JSONL file under NEXUS_DATA_DIR (default `.nexus-data/`). It
  * survives server restarts and demo resets. On serverless hosts with no
- * persistent disk, use the Supabase table in
- * supabase/migrations/0002_security_ledger.sql instead (insert-only by grants
- * and a trigger). That migration is written but not applied in this project.
+ * persistent disk: with Supabase configured, every record is also copied to
+ * the append-only table in supabase/migrations/0002_security_ledger.sql
+ * (insert-only by grants and a trigger).
  */
 
 export type LedgerKind = "security-event" | "risk-decision" | "trust-event";
@@ -61,7 +62,7 @@ function state() {
 // ---------------------------------------------------------------- redaction
 
 function secretValues(): string[] {
-  return ["PAYPAL_CLIENT_SECRET", "PAYPAL_CLIENT_ID", "GEMINI_API_KEY", "NEXUS_SIGNING_SECRET", "NEXUS_SIM_WEBHOOK_SECRET"]
+  return ["PAYPAL_CLIENT_SECRET", "PAYPAL_CLIENT_ID", "GEMINI_API_KEY", "NEXUS_SIGNING_SECRET", "NEXUS_SIM_WEBHOOK_SECRET", "SUPABASE_SECRET_KEY"]
     .map((k) => process.env[k])
     .filter((v): v is string => typeof v === "string" && v.length >= 8);
 }
@@ -95,6 +96,8 @@ export function appendRecord<T extends Record<string, unknown>>(kind: LedgerKind
   s.seq = record.seq;
   s.lastHash = record.hash;
   s.records.push(record as LedgerRecord);
+  // Mirror to Supabase's append-only table (already redacted and hash-chained). Never blocks or fails the caller.
+  if (supabaseEnabled()) void appendSecurityRecord(record);
   return record;
 }
 
