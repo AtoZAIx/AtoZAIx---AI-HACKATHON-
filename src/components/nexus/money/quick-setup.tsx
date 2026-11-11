@@ -3,7 +3,7 @@
 import { BikeIcon, CarIcon, GraduationCapIcon, HeartIcon, HomeIcon, LaptopIcon, MinusIcon, PlaneIcon, PlusIcon, TargetIcon, UserIcon, UsersIcon, UsersRoundIcon, XIcon, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { lockedMonthly, minLockMonthly, monthLabel, planMonth, type CurrencyCode, type MoneyPlan } from "@/lib/nexus/budget";
+import { goalsShare, lockedMonthly, minLockMonthly, monthLabel, planMonth, type CurrencyCode, type MoneyPlan } from "@/lib/nexus/budget";
 import { allocation, answersFrom, CURRENCIES, EMPTY_ANSWERS, emergencyMonthsFor, emergencyRate, FAMILY_DEFAULTS, familyCounts, formatAmount, GOAL_KINDS, incomeSummary, limitOf, LOCK_OPTIONS, personalIncome, quickPlan, type EarningType, type GoalKind, type HouseholdType, type QuickAnswers, type SetupGoal } from "@/lib/nexus/household";
 import { buildPots, planPriorities } from "@/lib/nexus/savings-policy";
 import { CurrencyInput, CurrencyProvider, useCurrency, useFmt } from "./currency";
@@ -305,7 +305,7 @@ function GoalsStep({ plan, goals, onChange }: { plan: MoneyPlan; goals: SetupGoa
         </p>
       )}
       <p className="text-[11px] text-muted-foreground" data-testid="lock-rules">
-        Each goal becomes a locked savings plan: at least <b className="text-foreground">{formatMoney(minLockMonthly(currency))} a month</b>, kept until the date you pick. When live, it’s held safely in your name by a regulated partner bank, and after the lock-in it can earn interest from that bank (the rate isn’t fixed). Breaking the lock early costs a 7% wallet charge on the balance. Today the plan is simulated in the app.
+        Each goal becomes a locked savings plan: at least <b className="text-foreground">{formatMoney(minLockMonthly(currency))} a month</b>, kept until the date you pick. When live, it’s held safely in your name by a regulated partner bank, and after the lock-in it can earn interest from that bank (the rate isn’t fixed). <b className="text-foreground">Finish a goal within its lock-in and you get extra money on top</b>, based on market rates at the time. Breaking the lock early costs a 7% wallet charge on the balance. Today the plan is simulated in the app.
       </p>
     </div>
   );
@@ -411,7 +411,7 @@ function Preview({ plan, now, ready, costsKnown, household }: { plan: MoneyPlan;
 
           <div className="space-y-1.5" data-testid="preview-build">
             <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">BUILD · save {formatMoney(pri.build)} each month</p>
-            <BuildPots pots={buildPots(pri.build, month.emergencyCents, month.goalsCents, plan.profile?.children ?? 0)} />
+            <BuildPots pots={buildPots(pri.build, month.emergencyCents, goalsShare(month), plan.profile?.children ?? 0)} />
             <p className="text-[11px] text-muted-foreground">
               Emergency fund: {plan.emergency?.targetMonths ?? 3} months of essentials. Separate virtual pots, planned in this app; no money is moved or deposited.
             </p>

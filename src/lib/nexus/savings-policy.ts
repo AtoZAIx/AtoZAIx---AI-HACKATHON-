@@ -9,7 +9,7 @@
  *   3. ENJOY: what's left for the person, kept at about 10% where possible
  *      and at most 25% (anything above that is left unassigned for the user to decide).
  */
-import { planMonth, type MoneyPlan, type MonthPlan } from "./budget";
+import { goalsShare, planMonth, type MoneyPlan, type MonthPlan } from "./budget";
 import { formatAmount, limitOf } from "./household";
 
 export const SAVINGS_POLICY = {
@@ -138,7 +138,7 @@ export function planPriorities(plan: MoneyPlan, month: MonthPlan = planMonth(pla
   const enjoy = plan.bills.filter((b) => b.kind === "want").reduce((s, b) => s + limitOf(b), 0);
   const P = SAVINGS_POLICY;
   const remaining = income - live - enjoy;
-  const committed = month.emergencyCents + month.goalsCents;
+  const committed = month.emergencyCents + goalsShare(month);
   const keep = Math.max(unit(income * P.preferredMax), Math.min(committed, unit(income * P.ceiling)));
   const build = Math.max(0, Math.min(remaining, keep));
   const unassigned = Math.max(0, remaining - build);

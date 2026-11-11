@@ -3,7 +3,7 @@
  * Every figure comes from the deterministic engine; nothing is invented, no
  * data leaves the device, and nothing is changed without the user approving it.
  */
-import { allowance, goalSaved, monthLabel, planMonth, type MoneyPlan } from "./budget";
+import { goalsShare, allowance, goalSaved, monthLabel, planMonth, type MoneyPlan } from "./budget";
 import { planPriorities } from "./savings-policy";
 import { allocation, categoryStatuses, comparePlans, emergencyStatus, formatAmount, goalProposals, incomeSummary, proposeLifeChange } from "./household";
 import type { MonthSpending } from "./budget";
@@ -124,7 +124,7 @@ export function answerMoneyQuestion(question: string, plan: MoneyPlan, spending:
   }
   if (/save|saving/.test(q) && !/goal/.test(q)) {
     return {
-      answer: `Your BUILD is ${f(pri.build)} a month (${pct(pri.build)} of income, ${f(pri.build * 12)} a year): ${f(month.emergencyCents)} to your emergency fund, ${f(month.goalsCents)} to goals, and the rest to your health, retirement and flexible pots.`,
+      answer: `Your BUILD is ${f(pri.build)} a month (${pct(pri.build)} of income, ${f(pri.build * 12)} a year): ${f(month.emergencyCents)} to your emergency fund, ${f(goalsShare(month))} to goals, and the rest to your health, retirement and flexible pots.`,
       assumptions: [...base, policyNote],
     };
   }

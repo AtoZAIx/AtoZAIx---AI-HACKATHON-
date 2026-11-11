@@ -85,11 +85,12 @@ test("quick setup: 4 screens, a few questions, a full plan with a live preview",
   await page.getByTestId("goal-lock").selectOption("24");
   await page.getByTestId("save-goal").click();
   const car = page.getByTestId("goal-card").filter({ has: page.getByText("Car", { exact: true }) });
-  await expect(car.getByTestId("vault")).toContainText("built to keep your money safe");
+  await expect(car.getByTestId("vault")).toContainText("Kept safe in your name by a regulated partner bank");
   await expect(car.getByTestId("vault")).toContainText("Today this plan is simulated");
-  await expect(car.getByTestId("lock-timeline")).toContainText("Month 1 of 24");
+  await expect(car.getByTestId("lock-timeline")).toContainText("month 1 of 24");
   // Auto-save already put this month's ₹11,236 in: ₹5,00,000 − ₹11,236 is left.
-  await expect(car.getByTestId("vault-to-go")).toContainText("₹4,88,764 to go over 24 months");
+  await expect(car.getByTestId("vault-to-go")).toContainText("₹4,88,764 left to save");
+  await expect(car.getByTestId("vault-locked-amount")).toHaveText("₹1,11,236"); // the locked money, at a glance
   await expect(car.getByTestId("vault-required")).toHaveText("₹11,236"); // ₹5,00,000 over 24 months, +5% a month
   // No interest is promised; at maturity you have what you put in.
   await expect(car.getByTestId("vault-maturity-total")).toContainText("₹6,00,000 of your own money");
@@ -98,10 +99,12 @@ test("quick setup: 4 screens, a few questions, a full plan with a live preview",
   // Goals come first in BUILD, tracked month by month; the safety net follows.
   // The car fits after the house, and auto-save records this month's ₹11,236 by itself.
   await expect(page.getByTestId("tracker-Car")).toContainText("Saved this month");
-  await expect(car.getByTestId("record-contribution")).toBeDisabled();
-  // Switching the car to the same amount every month gives the flat ₹20,834.
+  await expect(car.getByTestId("vault-this-month")).toContainText("✓ Saved");
+  await expect(car.getByTestId("vault-next")).toContainText("₹11,798"); // next month, 5% more
+  // Settings live under Manage. Switching the car to the same amount every month gives the flat ₹20,834.
+  await car.getByTestId("vault-manage").locator("summary").click();
   await car.getByTestId("step-up-choice").selectOption("none");
-  await expect(car.getByTestId("vault-required")).toHaveText("₹20,834");
+  await expect(car.getByTestId("vault-next")).toContainText("₹20,834");
   await expect(car.getByTestId("step-up-warning")).toHaveCount(0);
   // Breaking the lock early shows the 7% wallet charge before anything is confirmed: ₹1,11,236 balance.
   await car.getByRole("button", { name: "Request early withdrawal" }).click();
@@ -111,11 +114,12 @@ test("quick setup: 4 screens, a few questions, a full plan with a live preview",
   await expect(quote).toContainText("₹1,03,450");
   await car.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByTestId("tracker-House")).toContainText("month 1 of 60");
-  await expect(page.getByTestId("goal-floor")).toContainText("At least 10% of your income (₹8,000)");
+  await expect(page.getByTestId("goal-floor")).toContainText("10% of your income (₹8,000) goes to your goals every month");
   // The house fund is on auto-save: this month's amount was recorded on the 1st by itself.
   await expect(page.getByTestId("tracker-House")).toContainText("auto-save on day 1");
   await expect(page.getByTestId("tracker-House")).toContainText("Saved this month");
   // Goals get at least 10% of income (₹8,000): the house's ₹3,394 was topped up to ₹8,000.
+  await house.getByTestId("vault-manage").locator("summary").click();
   await expect(house.getByTestId("auto-save-status")).toContainText("Saved ₹8,000");
   await expect(house.getByTestId("auto-save")).toContainText("doesn’t move money from your bank");
 

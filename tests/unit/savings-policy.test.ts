@@ -231,10 +231,13 @@ describe("LIVE · ENJOY · BUILD savings policy", () => {
     const two = planMonth({ ...base, goals: [goal("Trip", 1_200, "2027-10", "low"), goal("Laptop", 12_000, "2027-10", "high")] }, NOW);
     expect(two.goalsCents).toBe(R(5_000));
     expect(two.goals.find((g) => g.goal.id === "Laptop")!.monthlyCents).toBeGreaterThan(two.goals.find((g) => g.goal.id === "Laptop")!.neededCents);
-    // Never more than a goal still needs; a chosen amount is kept; no open goals → no minimum.
-    expect(planMonth({ ...base, goals: [goal("Gift", 2_000, "2027-10")] }, NOW).goals[0].monthlyCents).toBe(R(2_000));
+    // Never more than a goal still needs; a chosen amount is kept. The rest of the 10% goes to the Goals reserve.
+    const gift = planMonth({ ...base, goals: [goal("Gift", 2_000, "2027-10")] }, NOW);
+    expect(gift.goals[0].monthlyCents).toBe(R(2_000));
+    expect(gift.goalReserveCents).toBe(R(3_000));
     expect(planMonth({ ...base, goals: [{ ...goal("Phone", 6_000, "2027-10"), chosenMonthlyCents: R(700) }] }, NOW).goals[0].monthlyCents).toBe(R(700));
-    expect(goalFloor(R(50_000), [])).toBe(0);
-    expect(goalFloor(R(50_000), [{ ...goal("Done", 1_000, "2027-10"), savedCents: R(1_000) }])).toBe(0);
+    // 10% for goals is mandatory: with no goal open, all of it goes to the Goals reserve.
+    expect(goalFloor(R(50_000), [])).toBe(R(5_000));
+    expect(planMonth(base, NOW).goalReserveCents).toBe(R(5_000));
   });
 });

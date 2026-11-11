@@ -1,13 +1,12 @@
 "use client";
 
-import { LockIcon, RepeatIcon, TrendingUpIcon } from "lucide-react";
+import { GiftIcon, LockIcon, RepeatIcon, Settings2Icon, TrendingUpIcon, TrophyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { addMonths, monthLabel, stepUpOf, withdrawalQuote, type Goal, type MoneyPlan, type StepUp } from "@/lib/nexus/budget";
 import { hasActiveMandate } from "@/lib/nexus/mandate";
-import { autoSaveOf, localDay, nextAutoPay, recordContribution, requestWithdrawal, setAutoSave, setChosenMonthly, setPaused, setStepUp, vault } from "@/lib/nexus/household";
+import { completionReward, REWARD_RULE, type CompletionReward, autoSaveOf, localDay, nextAutoPay, recordContribution, requestWithdrawal, setAutoSave, setChosenMonthly, setPaused, setStepUp, vault } from "@/lib/nexus/household";
 import { CurrencyInput, useCurrency, useFmt } from "./currency";
-import { LockTimeline } from "./goal-visuals";
 import { MandatePanel } from "./mandate-panel";
 import type { UpdatePlan } from "./money-planner";
 
@@ -20,10 +19,11 @@ const dateLabel = (iso: string) =>
   });
 
 /**
- * A goal's virtual savings vault: lock-in, maturity, required monthly amount
- * and a contribution ledger. Recording here never moves real money.
+ * A goal's locked fund, kept simple: how much is locked and until when, three
+ * plain facts (this month, next payment, fully saved by), the completion
+ * reward, and everything else under "Manage". Recording here never moves real money.
  */
-export function VaultDetails({ goal, monthlyCents, update, now }: { goal: Goal; monthlyCents: number; update: UpdatePlan; now: string }) {
+export function VaultDetails({ goal, monthlyCents, reachMonth = null, update, now }: { goal: Goal; monthlyCents: number; reachMonth?: string | null; update: UpdatePlan; now: string }) {
   const formatMoney = useFmt();
   const today = localDay();
   const currency = useCurrency();
@@ -32,6 +32,7 @@ export function VaultDetails({ goal, monthlyCents, update, now }: { goal: Goal; 
   const [confirm, setConfirm] = useState("");
   const [withdrawing, setWithdrawing] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [manage, setManage] = useState(false);
   const contribution = monthlyCents || v.requiredMonthly;
   const apply = (fn: (p: MoneyPlan) => { plan: MoneyPlan; duplicate: boolean }) => {
     let duplicate = false;
@@ -44,158 +45,129 @@ export function VaultDetails({ goal, monthlyCents, update, now }: { goal: Goal; 
   };
   const closed = Boolean(goal.withdrawal);
   const quote = withdrawalQuote(v.saved, !v.matured);
+  // "Auto-debit" in the Automatic payments card opens Manage, where the bank set-up lives.
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      if ((e as CustomEvent<{ goalId: string }>).detail?.goalId === goal.id) setManage(true);
+    };
+    window.addEventListener("nexus:open-mandate", onOpen);
+    return () => window.removeEventListener("nexus:open-mandate", onOpen);
+  }, [goal.id]);
+
+  // The three facts.
+  const mandate = hasActiveMandate(goal) ? goal.mandate! : null;
+  const auto = mandate ? null : autoSaveOf(goal);
+  const payDay = mandate?.day ?? auto?.day ?? null;
+  // This month's amount comes from the plan (which tops goals up to 10% of income), so it matches the tracker.
+  const planned = contribution;
+  const thisMonthPaid = (goal.contributions ?? []).filter((c) => c.month === now).reduce((t, c) => t + c.amountCents, 0);
+  const dueNow = Math.min(v.remaining, Math.max(0, planned - thisMonthPaid));
+  const afterThisMonth = v.remaining - dueNow;
+  const nextAmount = afterThisMonth > 0 ? Math.min(afterThisMonth, Math.max(v.schedule[1] ?? 0, planned)) : 0;
+  const nextMonth = addMonths(now, 1);
+  const doneBy = v.remaining === 0 ? null : (reachMonth ?? addMonths(now, Math.max(0, Math.min(v.monthsToFinish, v.monthsLeft) - 1)));
+  const lockLeft = monthIdx(v.maturityMonth) - monthIdx(now);
+  const howLong = v.matured ? "unlocked" : lockLeft >= 12 ? `in ${Math.floor(lockLeft / 12)} yr${lockLeft >= 24 ? "s" : ""}${lockLeft % 12 ? ` ${lockLeft % 12} mo` : ""}` : `in ${Math.max(1, lockLeft)} mo`;
 
   return (
-    <div className="space-y-3 rounded-xl bg-secondary/60 p-3" data-testid="vault">
-      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <LockIcon className="size-3.5" aria-hidden /> Locked savings, built to keep your money safe: when live, it’s held in your name by a regulated partner bank, never by PayPal Nexus. Today this plan is simulated in the app.
-      </p>
-      <LockTimeline
-        step={Math.min(v.lockMonths, Math.max(1, monthIdx(now) - monthIdx(v.startMonth) + 1))}
-        months={v.lockMonths}
-        startLabel={`Started ${monthLabel(v.startMonth)}`}
-        endLabel={`Unlocks ${dateLabel(v.maturityDate)}`}
-      />
-      {!goal.withdrawal && !hasActiveMandate(goal) && <AutoSave goal={goal} today={today} now={now} update={update} amount={contribution} />}
-      {!goal.withdrawal && v.remaining > 0 && <MandatePanel goal={goal} update={update} now={now} suggestedCents={contribution} />}
-      <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-        <div>
-          <dt className="text-[11px] text-muted-foreground">Lock-in</dt>
-          <dd>
-            {v.lockMonths} months from {monthLabel(v.startMonth)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[11px] text-muted-foreground">Matures</dt>
-          <dd data-testid="vault-maturity">
-            {dateLabel(v.maturityDate)} {v.matured ? "(matured)" : `(${v.daysToMaturity} days)`}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[11px] text-muted-foreground">Needed each month</dt>
-          <dd className="tabular font-semibold" data-testid="vault-required">
-            {formatMoney(v.requiredMonthly)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[11px] text-muted-foreground">Saved</dt>
-          <dd className="tabular">
-            {formatMoney(v.saved)} ({Math.round(v.completion * 100)}%)
-          </dd>
-        </div>
-      </dl>
-      {v.remaining > 0 && <StepUpCard goal={goal} schedule={v.schedule} startMonth={now} update={update} />}
-      <p className="text-xs text-muted-foreground" data-testid="vault-to-go">
-        {v.remaining === 0
-          ? `Fully saved. It stays locked until ${dateLabel(v.maturityDate)}.`
-          : v.monthsToFinish < v.monthsLeft
-            ? `${formatMoney(v.remaining)} to go: saved in about ${v.monthsToFinish} month${v.monthsToFinish === 1 ? "" : "s"}, then kept locked until ${dateLabel(v.maturityDate)}.`
-            : `${formatMoney(v.remaining)} to go over ${v.monthsLeft} month${v.monthsLeft === 1 ? "" : "s"}.`}
-      </p>
-      <div className="rounded-lg border border-dashed bg-background/60 px-3 py-2 text-xs" data-testid="vault-maturity-total">
-        <p>
-          At maturity you’ll have set aside <b className="tabular">{formatMoney(v.maturityTotal)}</b> of your own money.
+    <div className="space-y-3" data-testid="vault">
+      {/* 1. The locked money, at a glance. */}
+      <div className="rounded-xl border border-gold/40 bg-gradient-to-br from-gold-soft/70 to-background p-4" data-testid="vault-locked">
+        <p className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-gold-ink uppercase">
+          <LockIcon className="size-3.5" aria-hidden /> {closed ? "Withdrawn" : v.matured ? "Unlocked" : "Locked money"}
         </p>
-        <p className="mt-0.5 text-[11px] text-muted-foreground" data-testid="vault-minimum-rule">
-          {v.remaining > 0 && v.remaining < v.minimumMonthly
-            ? `Only ${formatMoney(v.remaining)} is left to save, so that’s all this fund needs.`
-            : `This fund takes at least ${formatMoney(v.minimumMonthly)} a month, and all your goals together get at least 10% of your income.`}{" "}
-          After the lock-in ends, your savings can earn interest from our partner bank. The rate isn’t fixed or guaranteed, and nothing earns interest while the plan is simulated.
-        </p>
-      </div>
-      {v.missedMonths.length > 0 && !goal.paused && (
-        <p className="text-xs text-warning-ink">No contribution recorded for {v.missedMonths.map(monthLabel).join(", ")}. Add extra money to catch up, or give the goal more time.</p>
-      )}
-      {goal.paused && <p className="text-xs text-muted-foreground">Contributions are paused. Resume whenever you’re ready.</p>}
-
-      {!closed && (
-        <div className="flex flex-wrap items-center gap-2">
-          {hasActiveMandate(goal) ? (
-            <span className="text-xs text-muted-foreground">Monthly amount is taken by auto-debit.</span>
-          ) : (
-            <Button
-              size="xs"
-              disabled={v.contributedThisMonth || goal.paused || contribution <= 0}
-              onClick={() =>
-                apply((p) =>
-                  recordContribution(p, goal.id, {
-                    month: now,
-                    date: today,
-                    amountCents: contribution,
-                    kind: "scheduled",
-                  }),
-                )
-              }
-              data-testid="record-contribution"
-            >
-              {v.contributedThisMonth ? "This month is recorded" : `Record this month’s ${formatMoney(contribution)}`}
-            </Button>
-          )}
-          <Button size="xs" variant="outline" onClick={() => update((p) => setPaused(p, goal.id, !goal.paused))}>
-            {goal.paused ? "Resume" : "Pause"}
-          </Button>
-          <span className="flex items-center gap-1.5">
-            <CurrencyInput label={`Extra money for ${goal.name}`} cents={extra} onChange={setExtra} className="h-8 w-28" />
-            <Button
-              size="xs"
-              variant="outline"
-              disabled={extra <= 0}
-              onClick={() => {
-                const key = crypto.randomUUID();
-                apply((p) =>
-                  recordContribution(p, goal.id, {
-                    month: now,
-                    date: today,
-                    amountCents: extra,
-                    kind: "extra",
-                    key,
-                  }),
-                );
-                setExtra(0);
-              }}
-            >
-              Add extra
-            </Button>
-          </span>
-          <span className="flex items-center gap-1.5 text-xs">
-            <span className="text-muted-foreground">Monthly amount</span>
-            <CurrencyInput
-              label={`${goal.name} monthly amount`}
-              cents={goal.chosenMonthlyCents ?? v.requiredMonthly}
-              onChange={(c) => update((p) => setChosenMonthly(p, goal.id, c))}
-              className="h-8 w-28"
-            />
-          </span>
-          {goal.chosenMonthlyCents != null && goal.chosenMonthlyCents < v.minimumMonthly && v.remaining > goal.chosenMonthlyCents && (
-            <span className="text-xs text-warning-ink" role="status" data-testid="vault-minimum">
-              Below the {formatMoney(v.minimumMonthly)} minimum, so {formatMoney(v.minimumMonthly)} is used.
+        <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-3">
+          <p className="tabular text-3xl font-semibold" data-testid="vault-locked-amount">
+            {formatMoney(v.saved)}
+          </p>
+          <p className="tabular text-sm text-muted-foreground">of {formatMoney(goal.targetCents)} goal</p>
+        </div>
+        <div className="mt-2 h-2 rounded-full bg-background/80" role="progressbar" aria-label={`${goal.name}: locked so far`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(v.completion * 100)}>
+          <div className="shimmer-fill h-2 rounded-full bg-gold-ink" style={{ width: `${Math.max(2, v.completion * 100)}%` }} />
+        </div>
+        <p className="tabular mt-2 text-xs" data-testid="vault-to-go">
+          {v.remaining === 0 ? <b className="text-success-ink">Fully saved</b> : <><b>{formatMoney(v.remaining)}</b> left to save</>} · Unlocks{" "}
+          <b data-testid="vault-maturity">{dateLabel(v.maturityDate)}</b> <span className="text-muted-foreground">
+            ({howLong} ·{" "}
+            <span data-testid="lock-timeline">
+              month {Math.min(v.lockMonths, Math.max(1, monthIdx(now) - monthIdx(v.startMonth) + 1))} of {v.lockMonths}
             </span>
-          )}
-        </div>
-      )}
-      {note && (
-        <p className="text-xs text-muted-foreground" role="status">
-          {note}
+            )
+          </span>
         </p>
-      )}
+        <p className="mt-1 text-[11px] text-muted-foreground">Kept safe in your name by a regulated partner bank, never by PayPal Nexus. Today this plan is simulated in the app.</p>
+      </div>
 
-      {(goal.contributions ?? []).length > 0 && (
-        <details className="text-xs">
-          <summary className="cursor-pointer text-muted-foreground">Contribution history ({goal.contributions!.length})</summary>
-          <ul className="mt-1 space-y-0.5">
-            {[...goal.contributions!].reverse().map((c) => (
-              <li key={c.id} className="flex justify-between gap-2">
-                <span>
-                  {dateLabel(c.date)} · {c.kind === "extra" ? "Extra" : `For ${monthLabel(c.month)}`} · recorded (virtual)
+      {/* 2. Three plain facts. */}
+      {!closed && v.remaining > 0 && (
+        <dl className="grid grid-cols-1 gap-2 text-sm min-[440px]:grid-cols-3">
+          <div className="flex items-center justify-between gap-3 rounded-lg bg-secondary/60 px-3 py-2 min-[440px]:block" data-testid="vault-this-month">
+            <dt className="text-[11px] text-muted-foreground">This month</dt>
+            <dd className="tabular font-semibold">
+              <span data-testid="vault-required">{formatMoney(thisMonthPaid > 0 ? thisMonthPaid : planned)}</span>
+            </dd>
+            <dd className="text-[11px]">
+              {thisMonthPaid > 0 && dueNow === 0 ? (
+                <span className="font-medium text-success-ink">✓ Saved</span>
+              ) : thisMonthPaid > 0 ? (
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <span className="font-medium text-warning-ink">{formatMoney(dueNow)} still due</span>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => apply((p) => recordContribution(p, goal.id, { month: now, date: today, amountCents: dueNow, kind: "extra", key: `topup-${now}-${thisMonthPaid}` }))}
+                    data-testid="vault-pay-due"
+                  >
+                    Add {formatMoney(dueNow)}
+                  </Button>
                 </span>
-                <span className="tabular">{formatMoney(c.amountCents)}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
+              ) : goal.paused ? (
+                <span className="text-muted-foreground">Paused</span>
+              ) : payDay ? (
+                <span className="text-muted-foreground">
+                  {mandate ? "Auto-debit" : "Auto-save"} on the {ordinal(payDay)}
+                </span>
+              ) : (
+                <Button
+                  size="xs"
+                  variant="outline"
+                  className="mt-1"
+                  disabled={contribution <= 0}
+                  onClick={() => apply((p) => recordContribution(p, goal.id, { month: now, date: today, amountCents: contribution, kind: "scheduled" }))}
+                  data-testid="record-contribution"
+                >
+                  Mark as saved
+                </Button>
+              )}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg bg-secondary/60 px-3 py-2 min-[440px]:block" data-testid="vault-next">
+            <dt className="text-[11px] text-muted-foreground">Next payment</dt>
+            {nextAmount > 0 ? (
+              <>
+                <dd className="tabular font-semibold">{formatMoney(nextAmount)}</dd>
+                <dd className="text-[11px] text-muted-foreground">{payDay ? shortDate(`${nextMonth}-${String(payDay).padStart(2, "0")}`) : monthLabel(nextMonth)}</dd>
+              </>
+            ) : (
+              <dd className="text-[11px] text-muted-foreground">None: this month finishes it</dd>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg bg-secondary/60 px-3 py-2 min-[440px]:block" data-testid="vault-done-by">
+            <dt className="text-[11px] text-muted-foreground">Fully saved by</dt>
+            <dd className="font-semibold">{doneBy ? monthLabel(doneBy) : "—"}</dd>
+            <dd className="text-[11px] text-muted-foreground">then stays locked</dd>
+          </div>
+        </dl>
       )}
 
-      {goal.withdrawal ? (
+      {/* 3. The completion reward, in one line. */}
+      <RewardCard reward={completionReward(goal, now, today)} />
+
+      {v.missedMonths.length > 0 && !goal.paused && !closed && (
+        <p className="text-xs text-warning-ink">No payment recorded for {v.missedMonths.map(monthLabel).join(", ")}. Add extra money under Manage to catch up.</p>
+      )}
+      {goal.paused && <p className="text-xs text-muted-foreground">Payments are paused. Resume under Manage whenever you’re ready.</p>}
+      {goal.withdrawal && (
         <p className="text-xs" role="status" data-testid="withdrawal-done">
           Withdrawal requested on {dateLabel(goal.withdrawal.requestedAt)}
           {goal.withdrawal.early && goal.withdrawal.feeCents
@@ -203,50 +175,155 @@ export function VaultDetails({ goal, monthlyCents, update, now }: { goal: Goal; 
             : `: you receive ${formatMoney(goal.withdrawal.payoutCents ?? goal.withdrawal.amountCents)}, no charge`}
           . This is simulated: with a live partner bank, it would be verified and paid out by them.
         </p>
-      ) : !withdrawing ? (
-        <Button size="xs" variant="ghost" onClick={() => setWithdrawing(true)}>
-          {v.matured ? "Withdraw (matured)" : "Request early withdrawal"}
-        </Button>
-      ) : (
-        <div className="space-y-2 rounded-lg border bg-background p-2 text-xs">
-          {!v.matured ? (
-            <div className="space-y-1 rounded-md bg-warning-soft p-2 text-warning-ink" data-testid="early-withdrawal-quote">
-              <p>
-                This plan matures on {dateLabel(v.maturityDate)}. Breaking the lock early costs a <b>7% wallet charge</b> on your current balance, and ends the plan.
-              </p>
-              <dl className="tabular grid grid-cols-3 gap-2 text-foreground">
-                <div>
-                  <dt className="text-[11px] text-warning-ink">Balance</dt>
-                  <dd className="font-semibold">{formatMoney(quote.payoutCents + quote.feeCents)}</dd>
-                </div>
-                <div>
-                  <dt className="text-[11px] text-warning-ink">Charge (7%)</dt>
-                  <dd className="font-semibold">−{formatMoney(quote.feeCents)}</dd>
-                </div>
-                <div>
-                  <dt className="text-[11px] text-warning-ink">You receive</dt>
-                  <dd className="font-semibold">{formatMoney(quote.payoutCents)}</dd>
-                </div>
-              </dl>
-              <p className="text-[11px]">Wait until {dateLabel(v.maturityDate)} to withdraw with no charge.</p>
-            </div>
-          ) : (
-            <p>Your plan has matured: you receive {formatMoney(quote.payoutCents)}, with no charge.</p>
-          )}
-          <label className="block space-y-1">
-            <span>To confirm it’s you, type the goal name: {goal.name}</span>
-            <input className="h-8 w-full rounded-lg border px-2" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-          </label>
-          <div className="flex gap-2">
-            <Button size="xs" disabled={confirm.trim() !== goal.name} onClick={() => update((p) => requestWithdrawal(p, goal.id, today, now))}>
-              Request withdrawal
-            </Button>
-            <Button size="xs" variant="ghost" onClick={() => setWithdrawing(false)}>
-              Cancel
-            </Button>
-          </div>
-        </div>
       )}
+
+      {/* 4. Everything else. */}
+      <details className="group rounded-xl border" open={manage} onToggle={(e) => setManage((e.currentTarget as HTMLDetailsElement).open)} data-testid="vault-manage">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm">
+          <span className="flex items-center gap-1.5 font-medium">
+            <Settings2Icon className="size-4 text-muted-foreground" aria-hidden /> Manage
+          </span>
+          <span className="text-xs text-muted-foreground">auto-save, bank auto-debit, payment growth, history, withdraw</span>
+        </summary>
+        <div className="space-y-3 border-t p-3">
+          {!closed && v.remaining > 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="font-medium">Add extra money</span>
+              <CurrencyInput label={`Extra money for ${goal.name}`} cents={extra} onChange={setExtra} className="h-8 w-28" />
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={extra <= 0}
+                onClick={() => {
+                  const key = crypto.randomUUID();
+                  apply((p) => recordContribution(p, goal.id, { month: now, date: today, amountCents: extra, kind: "extra", key }));
+                  setExtra(0);
+                }}
+              >
+                Add extra
+              </Button>
+            </div>
+          )}
+          {!closed && !hasActiveMandate(goal) && v.remaining > 0 && <AutoSave goal={goal} today={today} now={now} update={update} amount={contribution} />}
+          {!closed && v.remaining > 0 && <MandatePanel goal={goal} update={update} now={now} suggestedCents={contribution} />}
+          {v.remaining > 0 && !closed && <StepUpCard goal={goal} schedule={v.schedule} startMonth={now} update={update} />}
+
+          {!closed && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+              {v.remaining > 0 && (
+                <span className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Monthly amount</span>
+                  <CurrencyInput
+                    label={`${goal.name} monthly amount`}
+                    cents={goal.chosenMonthlyCents ?? v.requiredMonthly}
+                    onChange={(c) => update((p) => setChosenMonthly(p, goal.id, c))}
+                    className="h-8 w-28"
+                  />
+                </span>
+              )}
+              <span className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">Saved before this plan</span>
+                <CurrencyInput
+                  label={`${goal.name}: saved before this plan`}
+                  cents={goal.savedCents}
+                  onChange={(c) => update((p) => ({ ...p, goals: p.goals.map((x) => (x.id === goal.id ? { ...x, savedCents: c } : x)) }))}
+                  className="h-8 w-28"
+                />
+              </span>
+              {v.remaining > 0 && (
+                <Button size="xs" variant="outline" onClick={() => update((p) => setPaused(p, goal.id, !goal.paused))}>
+                  {goal.paused ? "Resume payments" : "Pause payments"}
+                </Button>
+              )}
+            </div>
+          )}
+          {goal.chosenMonthlyCents != null && goal.chosenMonthlyCents < v.minimumMonthly && v.remaining > goal.chosenMonthlyCents && (
+            <p className="text-xs text-warning-ink" role="status" data-testid="vault-minimum">
+              Below the {formatMoney(v.minimumMonthly)} minimum, so {formatMoney(v.minimumMonthly)} is used.
+            </p>
+          )}
+          {note && (
+            <p className="text-xs text-muted-foreground" role="status">
+              {note}
+            </p>
+          )}
+
+          {(goal.contributions ?? []).length > 0 && (
+            <div className="text-xs">
+              <p className="font-medium">Payment history</p>
+              <ul className="mt-1 divide-y rounded-lg border">
+                {[...goal.contributions!].reverse().map((c) => (
+                  <li key={c.id} className="flex justify-between gap-2 px-2.5 py-1.5">
+                    <span>
+                      {dateLabel(c.date)} · {c.kind === "extra" ? "Extra" : `For ${monthLabel(c.month)}`}
+                    </span>
+                    <span className="tabular font-medium">{formatMoney(c.amountCents)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="space-y-1 rounded-lg bg-secondary/50 px-3 py-2 text-[11px] text-muted-foreground" data-testid="vault-maturity-total">
+            <p>
+              By {dateLabel(v.maturityDate)} you’ll have set aside <b className="tabular text-foreground">{formatMoney(v.maturityTotal)}</b> of your own money, locked for {v.lockMonths} months from{" "}
+              {monthLabel(v.startMonth)}.
+            </p>
+            <p data-testid="vault-minimum-rule">
+              {v.remaining > 0 && v.remaining < v.minimumMonthly
+                ? `Only ${formatMoney(v.remaining)} is left to save, so that’s all this fund needs.`
+                : `This fund takes at least ${formatMoney(v.minimumMonthly)} a month, and all your goals together get at least 10% of your income.`}{" "}
+              After the lock-in ends, your savings can earn interest from our partner bank. The rate isn’t fixed or guaranteed, and nothing earns interest while the plan is simulated.
+            </p>
+          </div>
+
+          {!goal.withdrawal &&
+            (!withdrawing ? (
+              <Button size="xs" variant="ghost" onClick={() => setWithdrawing(true)}>
+                {v.matured ? "Withdraw (matured)" : "Request early withdrawal"}
+              </Button>
+            ) : (
+              <div className="space-y-2 rounded-lg border bg-background p-2 text-xs">
+                {!v.matured ? (
+                  <div className="space-y-1 rounded-md bg-warning-soft p-2 text-warning-ink" data-testid="early-withdrawal-quote">
+                    <p>
+                      This plan matures on {dateLabel(v.maturityDate)}. Breaking the lock early costs a <b>7% wallet charge</b> on your current balance, ends the plan, and gives up the completion reward.
+                    </p>
+                    <dl className="tabular grid grid-cols-3 gap-2 text-foreground">
+                      <div>
+                        <dt className="text-[11px] text-warning-ink">Balance</dt>
+                        <dd className="font-semibold">{formatMoney(quote.payoutCents + quote.feeCents)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[11px] text-warning-ink">Charge (7%)</dt>
+                        <dd className="font-semibold">−{formatMoney(quote.feeCents)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[11px] text-warning-ink">You receive</dt>
+                        <dd className="font-semibold">{formatMoney(quote.payoutCents)}</dd>
+                      </div>
+                    </dl>
+                    <p className="text-[11px]">Wait until {dateLabel(v.maturityDate)} to withdraw with no charge.</p>
+                  </div>
+                ) : (
+                  <p>Your plan has matured: you receive {formatMoney(quote.payoutCents)}, with no charge.</p>
+                )}
+                <label className="block space-y-1">
+                  <span>To confirm it’s you, type the goal name: {goal.name}</span>
+                  <input className="h-8 w-full rounded-lg border px-2" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+                </label>
+                <div className="flex gap-2">
+                  <Button size="xs" disabled={confirm.trim() !== goal.name} onClick={() => update((p) => requestWithdrawal(p, goal.id, today, now))}>
+                    Request withdrawal
+                  </Button>
+                  <Button size="xs" variant="ghost" onClick={() => setWithdrawing(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ))}
+        </div>
+      </details>
     </div>
   );
 }
@@ -367,7 +444,7 @@ function StepUpCard({ goal, schedule, startMonth, update }: { goal: Goal; schedu
             {next ? (
               <>
                 {" "}
-                → next month <b>{formatMoney(next)}</b>
+                → {pays.length === 2 ? `last payment (${monthLabel(lastMonth)})` : "next month"} <b>{formatMoney(next)}</b>
               </>
             ) : null}
             {pays.length > 2 ? (
@@ -385,6 +462,32 @@ function StepUpCard({ goal, schedule, startMonth, update }: { goal: Goal; schedu
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/** Extra money for finishing a goal within its lock-in, set from market rates when the lock-in ends. Never a promised amount. */
+function RewardCard({ reward }: { reward: CompletionReward | null }) {
+  const formatMoney = useFmt();
+  if (!reward) return null;
+  const earned = reward.status === "earned";
+  const tone = earned ? "border-gold/50 bg-gold-soft/60" : reward.status === "on-track" ? "border-brand/25 bg-brand-soft/40" : "border-dashed bg-background/60";
+  const Icon = earned ? TrophyIcon : GiftIcon;
+  return (
+    <div className={`flex items-start gap-2.5 rounded-lg border px-3 py-2 text-xs ${tone}`} data-testid="vault-reward" data-status={reward.status}>
+      <Icon className={`mt-0.5 size-4 shrink-0 ${earned ? "text-gold-ink" : "text-brand-ink"}`} aria-hidden />
+      <div className="space-y-0.5">
+        <p className="font-medium">
+          {reward.status === "earned"
+            ? `Goal completed within its lock-in. You qualify for a completion reward, paid with your savings on ${dateLabel(reward.paysOn)}.`
+            : reward.status === "on-track"
+              ? `Finish before ${dateLabel(reward.byDate)} and get extra money on top.`
+              : reward.status === "missed"
+                ? `The lock-in ended before the goal was complete, so there’s no completion reward this time.`
+                : `No completion reward: the lock was broken early.`}
+        </p>
+        {(reward.status === "earned" || reward.status === "on-track") && <p className="text-[11px] text-muted-foreground">{REWARD_RULE}</p>}
+      </div>
     </div>
   );
 }

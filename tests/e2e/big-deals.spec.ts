@@ -102,7 +102,7 @@ test("a big approval needs the customer's passkey, checked on the server", async
   await expect(step).toContainText("Confirm it’s you");
   await page.getByTestId("consent").check();
   await expect(page.getByTestId("approve-order")).toBeDisabled(); // until a passkey is set up
-  await page.getByTestId("passkey-setup").click();
+  await passkeyIfAsked(page); // sets it up, and waits for the "Passkey set up" toast to settle
   await expect(page.getByTestId("passkey-ready")).toBeVisible();
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   expect(results.violations.map((v) => v.id)).toEqual([]);

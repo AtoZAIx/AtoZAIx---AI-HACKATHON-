@@ -13,7 +13,7 @@
  *  - skip any month or cancel at any time.
  */
 import { addMonths, goalSaved, minLockMonthly, type Goal, type Mandate, type MoneyPlan } from "./budget";
-import { addMonthsToDate, applyAutoPays, recordContribution } from "./household";
+import { addMonthsToDate, applyAutoPays, applyGoalReserve, recordContribution } from "./household";
 
 /** Per-debit limit without approving each debit (RBI e-mandate framework; INR). */
 export const MANDATE_MAX_CENTS = 15_000_00;
@@ -258,7 +258,8 @@ export const hasActiveMandate = (g: Goal) => g.mandate?.status === "active";
 export function runAutomations(plan: MoneyPlan, today: string): MoneyPlan {
   let current = plan;
   for (let i = 0; i < 5; i++) {
-    const next = applyMandates(applyAutoPays(current, today).plan, today).plan;
+    // Bills and auto-save, then auto-debits, then the rest of the 10% for goals into the Goals reserve.
+    const next = applyGoalReserve(applyMandates(applyAutoPays(current, today).plan, today).plan, today);
     if (next === current) break;
     current = next;
   }

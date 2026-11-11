@@ -5,7 +5,7 @@
  * are a virtual ledger only.
  */
 import { allocateThreePriorities } from "./savings-policy";
-import {
+import { goalsShare,
   addMonths,
   emergencyMonthly,
   withdrawalQuote,
@@ -206,7 +206,7 @@ export function personalTargets(plan: MoneyPlan, now: string): PersonalTargets {
     emergencyNeed,
     goalsNeed,
     savingsNeed: emergencyNeed + goalsNeed,
-    savingsPlanned: full.emergencyCents + full.goalsCents,
+    savingsPlanned: full.emergencyCents + goalsShare(full),
     buffer,
     lifestyleSafe: Math.max(0, income - essentials - emergencyNeed - goalsNeed - buffer),
     lifestylePlanned,
@@ -299,7 +299,7 @@ export function allocation(plan: MoneyPlan, month: MonthPlan = planMonth(plan, n
   const lifestyle = plan.bills.filter((b) => b.kind === "want").reduce((s, b) => s + limitOf(b), 0);
   const essentialsShortfall = Math.max(0, essentials - income);
   const overAllocated = Math.max(0, essentials + lifestyle - income);
-  const reserve = Math.max(0, income - essentials - lifestyle - month.emergencyCents - month.goalsCents);
+  const reserve = Math.max(0, income - essentials - lifestyle - month.emergencyCents - goalsShare(month));
   const explanations: string[] = [];
   if (essentialsShortfall > 0) {
     const biggest = plan.bills
@@ -313,7 +313,7 @@ export function allocation(plan: MoneyPlan, month: MonthPlan = planMonth(plan, n
   } else if (overAllocated > 0) {
     explanations.push("Your lifestyle limits are more than what’s left after essentials. Lower some lifestyle limits; essentials stay as they are.");
   }
-  return { income, essentials, lifestyle, protection: month.emergencyCents, goals: month.goalsCents, reserve, essentialsShortfall, overAllocated, explanations };
+  return { income, essentials, lifestyle, protection: month.emergencyCents, goals: goalsShare(month), reserve, essentialsShortfall, overAllocated, explanations };
 }
 
 export function nowMonth(d = new Date()) {
@@ -510,6 +510,83 @@ export function vault(goal: Goal, now: string, today: string, currency?: Currenc
     schedule,
     // Saved before this month + the planned payments from this month on (growing with the step-up, or your own flat amount).
     maturityTotal: Math.min(goal.targetCents, goal.targetCents - start + (goal.chosenMonthlyCents != null ? monthly * monthsLeft : schedule.reduce((t, x) => t + x, 0))),
+  };
+}
+
+/**
+ * Completion reward: finish a locked goal (reach its target) before its
+ * lock-in ends and you qualify for extra money on top, set by the partner
+ * bank from market rates when the lock-in ends. Never a fixed or promised
+ * amount, so none is shown; nothing is paid while the plan is simulated.
+ * Breaking the lock early loses it.
+ */
+export type CompletionReward =
+  | { status: "on-track"; byDate: string; remainingCents: number }
+  | { status: "earned"; reachedOn: string; paysOn: string }
+  | { status: "missed"; maturityDate: string }
+  | { status: "lost" };
+
+export const REWARD_RULE = "Based on market rates when the lock-in ends: not fixed or guaranteed, and not paid while the plan is simulated.";
+
+/** The day a goal first reached its target: money it started with, then each contribution in date order. */
+export function reachedOn(goal: Goal): string | null {
+  if (goal.targetCents <= 0) return null;
+  let total = goal.savedCents;
+  if (total >= goal.targetCents) return `${goal.startMonth ?? "1970-01"}-01`;
+  for (const c of [...(goal.contributions ?? [])].sort((a, b) => a.date.localeCompare(b.date))) {
+    total += c.amountCents;
+    if (total >= goal.targetCents) return c.date;
+  }
+  return null;
+}
+
+export function completionReward(goal: Goal, now: string, today: string): CompletionReward | null {
+  if (!goal.lockMonths) return null;
+  const v = vault(goal, now, today);
+  // Breaking the lock early ends the plan and the reward with it.
+  if (goal.withdrawal?.early) return { status: "lost" };
+  const reached = reachedOn(goal);
+  if (reached && reached <= v.maturityDate) return { status: "earned", reachedOn: reached, paysOn: v.maturityDate };
+  if (v.matured) return { status: "missed", maturityDate: v.maturityDate };
+  return { status: "on-track", byDate: v.maturityDate, remainingCents: v.remaining };
+}
+
+/**
+ * Goals reserve: 10% of income always goes to goals. The part the goals
+ * don't need this month is recorded here once a month (virtual savings,
+ * kept for goals), and can be moved into any goal.
+ */
+export function applyGoalReserve(plan: MoneyPlan, today: string): MoneyPlan {
+  if (plan.salaryCents <= 0) return plan;
+  const month = today.slice(0, 7);
+  const id = `reserve:${month}`;
+  if (plan.goalReserve?.entries.some((e) => e.id === id)) return plan;
+  const amount = planMonth(plan, month).goalReserveCents;
+  if (amount <= 0) return plan;
+  const r = plan.goalReserve ?? { savedCents: 0, entries: [] };
+  return { ...plan, goalReserve: { savedCents: r.savedCents + amount, entries: [...r.entries, { id, month, date: today, amountCents: amount }] } };
+}
+
+/** What the reserve got this month (recorded, or planned when not yet recorded). */
+export function reserveThisMonth(plan: MoneyPlan, month: MonthPlan, now: string): { cents: number; recorded: boolean } {
+  const entry = plan.goalReserve?.entries.find((e) => e.id === `reserve:${now}`);
+  return entry ? { cents: entry.amountCents, recorded: true } : { cents: month.goalReserveCents, recorded: false };
+}
+
+/** Moves money from the Goals reserve into a goal (never more than the goal still needs). */
+export function moveFromReserve(plan: MoneyPlan, goalId: string, today: string, amountCents?: number): { plan: MoneyPlan; movedCents: number } {
+  const r = plan.goalReserve;
+  const goal = plan.goals.find((g) => g.id === goalId);
+  if (!r || !goal || goal.withdrawal) return { plan, movedCents: 0 };
+  const want = amountCents == null ? r.savedCents : Math.max(0, Math.round(amountCents));
+  const moved = Math.min(r.savedCents, want, Math.max(0, goal.targetCents - goalSaved(goal)));
+  if (moved <= 0) return { plan, movedCents: 0 };
+  const month = today.slice(0, 7);
+  const key = `reserve-${today}-${r.entries.length}`;
+  const next = recordContribution(plan, goalId, { month, date: today, amountCents: moved, kind: "extra", key }).plan;
+  return {
+    plan: { ...next, goalReserve: { savedCents: r.savedCents - moved, entries: [...r.entries, { id: key, month, date: today, amountCents: -moved, goalId }] } },
+    movedCents: moved,
   };
 }
 

@@ -50,8 +50,8 @@ describe("money maths invariants on 400 random plans", () => {
       const ctx = JSON.stringify({ i, salary: p.salaryCents });
       expect(finite(m) && finite(a) && finite(pri), ctx).toBe(true);
       for (const v of [a.essentials, a.lifestyle, a.protection, a.goals, a.reserve, pri.live, pri.enjoy, pri.build, pri.unassigned]) expect(v, ctx).toBeGreaterThanOrEqual(0);
-      // Emergency + goals never more than what's left after bills.
-      expect(m.emergencyCents + m.goalsCents, ctx).toBeLessThanOrEqual(Math.max(0, p.salaryCents - m.billsCents));
+      // Emergency + goals + Goals reserve never more than what's left after bills.
+      expect(m.emergencyCents + m.goalsCents + m.goalReserveCents, ctx).toBeLessThanOrEqual(Math.max(0, p.salaryCents - m.billsCents));
       if (a.essentials + a.lifestyle <= a.income) expect(a.essentials + a.lifestyle + a.protection + a.goals + a.reserve, ctx).toBe(a.income);
       if (pri.shortfall === 0 && pri.live + pri.enjoy <= pri.income) expect(pri.live + pri.enjoy + pri.build + pri.unassigned, ctx).toBe(pri.income);
       expect(pri.build, ctx).toBeLessThanOrEqual(Math.ceil(p.salaryCents * 0.5));

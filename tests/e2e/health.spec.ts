@@ -53,6 +53,8 @@ test("money plan: full journey with no errors, reload keeps everything", async (
   await page.getByTestId("onboarding-finish").click();
   await expect(page.getByTestId("money-overview")).toBeVisible();
   await expect(page.getByTestId("auto-payments")).toBeVisible();
+  await expect(page.getByTestId("vault-locked")).toBeVisible();
+  await page.getByTestId("vault-manage").locator("summary").click();
   await expect(page.getByTestId("step-up")).toBeVisible();
   // Money in and out must add up exactly, and nothing is negative.
   const parts = await page.evaluate(() => {

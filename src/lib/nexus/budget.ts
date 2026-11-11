@@ -195,6 +195,12 @@ export interface Expense {
   source: SpendSource;
 }
 
+export interface GoalReserve {
+  savedCents: number;
+  /** In: the month's leftover share (id `reserve:<month>`). Out (negative): moved into a goal. */
+  entries: Array<{ id: string; month: string; date: string; amountCents: number; goalId?: string | null }>;
+}
+
 export interface MoneyPlan {
   v: 1;
   /** Total monthly take-home income used for the split (household total when income sources are listed). */
@@ -207,6 +213,8 @@ export interface MoneyPlan {
   incomes?: IncomeSource[];
   /** Kept separate from goals: only this counts as the emergency fund. */
   emergency?: EmergencyFund | null;
+  /** The part of the mandatory 10% for goals that goals didn't need yet: kept for goals (virtual). */
+  goalReserve?: GoalReserve | null;
   /** Spending auto-detect: shops the user sorted themselves, shop key → category (bill) id. */
   merchantRules?: Record<string, string>;
 }
@@ -313,8 +321,13 @@ export interface GoalPlan {
 export interface MonthPlan {
   salaryCents: number;
   billsCents: number;
-  /** Total set aside for goals this month. */
+  /** Total paid into goals this month. */
   goalsCents: number;
+  /**
+   * The rest of the mandatory 10% for goals that the goals didn't need this
+   * month: kept for goals in the Goals reserve, never moved elsewhere.
+   */
+  goalReserveCents: number;
   /** Set aside for the emergency fund this month (funded before goals). */
   emergencyCents: number;
   /** What's left to spend freely. Never negative. */
@@ -377,6 +390,22 @@ export function stepUpSchedule(remainingCents: number, n: number, step: StepUp |
   });
 }
 
+/**
+ * How many months from this one until `startCents` is saved, paying `firstCents`
+ * this month and growing by the step-up after that (as the plan does).
+ */
+export function monthsToSave(startCents: number, firstCents: number, step: StepUp | null, offset = 0): number {
+  if (startCents <= 0) return 0;
+  if (firstCents <= 0) return Infinity;
+  let saved = 0;
+  for (let k = 0; k < 1200; k++) {
+    const f = step?.every === "year" ? (1 + step.pct) ** (Math.floor((offset + k) / 12) - Math.floor(offset / 12)) : step ? (1 + step.pct) ** k : 1;
+    saved += Math.ceil((firstCents * f) / 100) * 100;
+    if (saved >= startCents) return k + 1;
+  }
+  return 1200;
+}
+
 /** What was still left to save at the start of `month` (this month's contributions added back), so this month's amount doesn't shrink once it's paid. */
 export function remainingAtStart(goal: Goal, month: string): number {
   const paidThisMonth = (goal.contributions ?? []).filter((c) => c.month === month).reduce((t, c) => t + c.amountCents, 0);
@@ -422,14 +451,20 @@ export function emergencyMonthly(plan: Pick<MoneyPlan, "salaryCents" | "bills" |
   return essentials > 0 ? Math.min(want, target - e.savedCents) : want;
 }
 
-/** At least this share of monthly income goes to goals, while any goal is still open. */
+/** This share of monthly income always goes to goals (mandatory). */
 export const GOAL_SHARE = 0.1;
 
-/** The monthly minimum for goals: 10% of income, or 0 when no goal is open. */
-export function goalFloor(salaryCents: number, goals: Goal[]): number {
-  const open = goals.some((g) => !g.paused && !g.withdrawal && g.targetCents - goalSaved(g) > 0);
-  return open ? Math.floor((Math.max(0, salaryCents) * GOAL_SHARE) / 100) * 100 : 0;
+/**
+ * The mandatory monthly amount for goals: 10% of income. What the goals don't
+ * need goes to the Goals reserve, so it's always kept for goals.
+ */
+export function goalFloor(salaryCents: number, _goals?: Goal[]): number {
+  void _goals;
+  return Math.floor((Math.max(0, salaryCents) * GOAL_SHARE) / 100) * 100;
 }
+
+/** Everything set aside for goals this month: payments into goals plus the Goals reserve. */
+export const goalsShare = (m: Pick<MonthPlan, "goalsCents" | "goalReserveCents">) => m.goalsCents + (m.goalReserveCents ?? 0);
 
 export function planMonth(plan: Pick<MoneyPlan, "salaryCents" | "bills" | "goals"> & { emergency?: EmergencyFund | null; currency?: CurrencyCode; profile?: Profile }, now: string): MonthPlan {
   const billsCents = plan.bills.reduce((s, b) => s + Math.max(0, b.amountCents), 0);
@@ -444,7 +479,7 @@ export function planMonth(plan: Pick<MoneyPlan, "salaryCents" | "bills" | "goals
     // This month's amount, from what was left at the start of the month (with any step-up).
     const start = remainingAtStart(goal, now);
     const base = stepUpFirst(start, left, stepUpOf(goal), goal.startMonth ? Math.max(0, monthsBetween(goal.startMonth, now)) : 0);
-    return { goal, remainingCents, monthsLeft: left, neededCents: lockedMonthly(goal, base, start, plan.currency) };
+    return { goal, remainingCents, startCents: start, monthsLeft: left, neededCents: lockedMonthly(goal, base, start, plan.currency) };
   });
 
   const order = [...rows].sort(
@@ -467,31 +502,39 @@ export function planMonth(plan: Pick<MoneyPlan, "salaryCents" | "bills" | "goals
     if (given >= floor || available <= 0) break;
     if (r.goal.paused || r.goal.chosenMonthlyCents != null) continue;
     const current = monthly.get(r.goal.id) ?? 0;
-    const add = Math.min(r.remainingCents - current, floor - given, available);
+    // Up to what the goal still needed at the start of this month (this month's payment included).
+    const add = Math.min(r.startCents - current, floor - given, available);
     if (add <= 0) continue;
     monthly.set(r.goal.id, current + add);
     given += add;
     available -= add;
   }
 
-  const goals: GoalPlan[] = rows.map((r) => {
+  const goals: GoalPlan[] = rows.map(({ startCents, ...r }) => {
     const monthlyCents = monthly.get(r.goal.id) ?? 0;
     if (r.remainingCents === 0) return { ...r, monthlyCents: 0, status: "done", reachMonth: now };
     if (r.goal.paused) return { ...r, monthlyCents: 0, status: "paused", reachMonth: null };
     if (monthlyCents === 0) return { ...r, monthlyCents, status: "cannot-start", reachMonth: null };
-    const months = Math.ceil(r.remainingCents / monthlyCents);
+    // Counted from the start of this month (a payment already made isn't counted again), with the step-up the
+    // payments grow by, unless the customer chose a fixed amount.
+    const step = r.goal.chosenMonthlyCents != null ? null : stepUpOf(r.goal);
+    const offset = r.goal.startMonth ? Math.max(0, monthsBetween(r.goal.startMonth, now)) : 0;
+    const months = monthsToSave(Math.max(r.remainingCents, startCents), monthlyCents, step, offset);
     const reachMonth = addMonths(now, months - 1);
     return { ...r, monthlyCents, status: monthlyCents >= r.neededCents ? "on-track" : "behind", reachMonth };
   });
 
   const goalsCents = goals.reduce((s, g) => s + g.monthlyCents, 0);
+  // The rest of the mandatory 10% is kept for goals in the Goals reserve.
+  const goalReserveCents = Math.max(0, Math.min(floor - given, available));
   const needed = rows.filter((r) => !r.goal.paused).reduce((s, r) => s + r.neededCents, 0);
   return {
     salaryCents: plan.salaryCents,
     billsCents,
     goalsCents,
+    goalReserveCents,
     emergencyCents,
-    freeCents: Math.max(0, plan.salaryCents - billsCents - emergencyCents - goalsCents),
+    freeCents: Math.max(0, plan.salaryCents - billsCents - emergencyCents - goalsCents - goalReserveCents),
     shortfallCents: Math.max(0, needed - goalsCents),
     billsExceedSalary: billsCents > plan.salaryCents,
     goals,
@@ -638,6 +681,22 @@ export function parsePlan(raw: unknown): MoneyPlan {
       }))
       .filter((e) => e.id && e.date),
     currency: (["INR", "USD", "EUR", "GBP"] as const).includes(r.currency as CurrencyCode) ? (r.currency as CurrencyCode) : undefined,
+    goalReserve:
+      r.goalReserve && typeof r.goalReserve === "object"
+        ? {
+            savedCents: cents(r.goalReserve.savedCents),
+            entries: (Array.isArray(r.goalReserve.entries) ? r.goalReserve.entries : [])
+              .map((e) => ({
+                id: str(e?.id, 60),
+                month: month(e?.month) ?? "",
+                date: day(e?.date) ?? "",
+                amountCents: typeof e?.amountCents === "number" && Number.isFinite(e.amountCents) ? Math.round(e.amountCents) : 0,
+                ...(typeof e?.goalId === "string" ? { goalId: e.goalId.slice(0, 40) } : {}),
+              }))
+              .filter((e) => e.id && e.month && e.date)
+              .slice(-240),
+          }
+        : undefined,
     merchantRules:
       r.merchantRules && typeof r.merchantRules === "object"
         ? Object.fromEntries(

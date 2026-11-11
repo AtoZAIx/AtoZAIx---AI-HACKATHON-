@@ -330,7 +330,9 @@ describe("quick setup: a full plan from a few answers", () => {
     expect(p.emergency!.monthlyCents).toBe(R(15_000)); // ₹1,80,000 over 12 months
     // LIVE ₹30,000 → BUILD 40% (₹32,000: ₹15,000 emergency + ₹17,000 more) → ENJOY ₹18,000.
     expect(a.lifestyle).toBe(R(18_000));
-    expect(a.reserve).toBe(R(17_000));
+    // 10% of income (₹8,000) always goes to goals: with no goal yet, it goes to the Goals reserve.
+    expect(a.goals).toBe(R(8_000));
+    expect(a.reserve).toBe(R(9_000));
     // Shopping, entertainment and travel are kept small.
     const limit = (n: string) => p.bills.find((b) => b.name === n)!.amountCents;
     expect(limit("Food and outings")).toBe(R(7_200));

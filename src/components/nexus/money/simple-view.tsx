@@ -3,8 +3,8 @@
 import { CheckIcon, PencilIcon, PlusIcon, RepeatIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { addMonths, goalFloor, goalSaved, monthLabel, type BudgetItem, type MoneyPlan, type MonthPlan, type MonthSpending } from "@/lib/nexus/budget";
-import { allocation, autoSaveOf, categoryStatuses, emergencyStatus, limitOf, localDay, nextAutoPay, setAutoPay, spentToday, todayAllowance, type AlertLevel, type TodayAllowance } from "@/lib/nexus/household";
+import { goalsShare, addMonths, goalFloor, goalSaved, monthLabel, remainingAtStart, stepUpOf, type BudgetItem, type MoneyPlan, type MonthPlan, type MonthSpending } from "@/lib/nexus/budget";
+import { reserveThisMonth, allocation, autoSaveOf, categoryStatuses, emergencyStatus, limitOf, localDay, nextAutoPay, setAutoPay, spentToday, todayAllowance, type AlertLevel, type TodayAllowance } from "@/lib/nexus/household";
 import { buildPots, planPriorities } from "@/lib/nexus/savings-policy";
 import { GoalIcon, ShimmerBar } from "./goal-visuals";
 import { BuildPots, FamilyNotes, PRIORITY_COLOR, PriorityDonut, SavingsRate } from "./priorities";
@@ -348,17 +348,27 @@ export function GoalsThisMonth({ month, now, plan }: { month: MonthPlan; now: st
   });
   const plannedAll = rows.reduce((t, r) => t + r.planned, 0);
   const recordedAll = rows.reduce((t, r) => t + r.recorded, 0);
+  // The rest of the mandatory 10% goes to the Goals reserve: it always stays with goals.
+  const reserve = reserveThisMonth(plan, month, now).cents;
   return (
     <div className="space-y-2 rounded-xl bg-secondary/60 p-3" data-testid="goals-tracker">
       <p className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
         <span className="font-medium">{monthLabel(now)}</span>
         <span className="tabular text-muted-foreground">
-          <b className="text-foreground">{formatMoney(recordedAll)}</b> saved this month · {formatMoney(plannedAll)} planned
+          <b className="text-foreground">{formatMoney(recordedAll)}</b> saved this month · {rows.every((r) => r.gp.status === "done") ? "every goal fully saved" : `${formatMoney(plannedAll)} planned`}
+          {reserve > 0 ? ` · ${formatMoney(reserve)} to Goals reserve` : ""}
         </span>
       </p>
       {floor > 0 && (
         <p className="text-[11px] text-muted-foreground" data-testid="goal-floor">
-          At least 10% of your income (<b className="tabular text-foreground">{formatMoney(floor)}</b>) goes to your goals each month, more when they need it.
+          10% of your income (<b className="tabular text-foreground">{formatMoney(floor)}</b>) goes to your goals every month.
+          {reserve > 0 && (
+            <>
+              {" "}
+              This month: <b className="tabular text-foreground">{formatMoney(Math.max(0, floor - reserve))}</b> into your goals and <b className="tabular text-foreground">{formatMoney(reserve)}</b> to your{" "}
+              <b className="text-foreground">Goals reserve</b>, kept for your goals.
+            </>
+          )}
         </p>
       )}
       <ul className="divide-y divide-border/70">
@@ -369,10 +379,14 @@ export function GoalsThisMonth({ month, now, plan }: { month: MonthPlan; now: st
               <div className="min-w-0">
               <p className="truncate text-sm font-medium">{g.name}</p>
               <p className="tabular text-[11px] text-muted-foreground">
-                {planned < gp.neededCents && gp.status !== "done" ? `Needs ${formatMoney(gp.neededCents)} a month · ${formatMoney(planned)} fits` : `${formatMoney(planned)} a month`}
+                {gp.status === "done" ? "Fully saved" : planned < gp.neededCents ? `Needs ${formatMoney(gp.neededCents)} a month · ${formatMoney(planned)} fits` : gp.reachMonth === now
+                    ? `${formatMoney(planned)} this month`
+                    : stepUpOf(g) && g.chosenMonthlyCents == null
+                      ? `${formatMoney(planned)} this month (+${Math.round(stepUpOf(g)!.pct * 100)}% a ${stepUpOf(g)!.every})`
+                      : `${formatMoney(planned)} a month`}
                 {step ? ` · month ${step} of ${g.lockMonths}` : ""}
-                {g.mandate?.status === "active" ? ` · auto-debit on day ${g.mandate.day}` : autoSaveOf(g) ? ` · auto-save on day ${autoSaveOf(g)!.day}` : ""}
-                {gp.reachMonth ? ` · saved by ${monthLabel(gp.reachMonth)}` : planned === 0 && gp.status !== "done" ? "" : ` · saved by ${monthLabel(g.dueMonth)}`}
+                {gp.status === "done" ? "" : g.mandate?.status === "active" ? ` · auto-debit on day ${g.mandate.day}` : autoSaveOf(g) ? ` · auto-save on day ${autoSaveOf(g)!.day}` : ""}
+                {gp.status === "done" ? "" : gp.reachMonth ? ` · saved by ${monthLabel(gp.reachMonth)}` : planned === 0 ? "" : ` · saved by ${monthLabel(g.dueMonth)}`}
                 {g.lockMonths && g.startMonth ? ` · unlocks ${monthLabel(addMonths(g.startMonth, g.lockMonths))}` : ""}
               </p>
               </div>
@@ -399,7 +413,7 @@ export function GoalsThisMonth({ month, now, plan }: { month: MonthPlan; now: st
 export function BuildSummary({ plan, month, now }: { plan: MoneyPlan; month: MonthPlan; now: string }) {
   const formatMoney = useFmt();
   const pri = planPriorities(plan, month);
-  const pots = buildPots(pri.build, month.emergencyCents, month.goalsCents, plan.profile?.children ?? 0).filter((x) => x.key !== "goals");
+  const pots = buildPots(pri.build, month.emergencyCents, goalsShare(month), plan.profile?.children ?? 0).filter((x) => x.key !== "goals");
   const rest = pots.reduce((t, x) => t + x.cents, 0);
   const e = plan.emergency ? emergencyStatus(plan, now) : null;
   return (
