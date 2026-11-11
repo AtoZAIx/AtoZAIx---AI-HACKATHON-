@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { PaymentError } from "./payments/gateway";
 import { IdempotencyError } from "./security/payment-guard";
+import { PasskeyError } from "./security/passkey";
 import { NexusError } from "./service";
 
 export async function handle(fn: () => Promise<unknown>): Promise<Response> {
@@ -10,7 +11,7 @@ export async function handle(fn: () => Promise<unknown>): Promise<Response> {
     return Response.json(data, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     if (err instanceof z.ZodError) return Response.json({ error: "Invalid request", issues: err.issues }, { status: 400 });
-    if (err instanceof NexusError || err instanceof PaymentError || err instanceof IdempotencyError) return Response.json({ error: err.message }, { status: err.status });
+    if (err instanceof NexusError || err instanceof PaymentError || err instanceof IdempotencyError || err instanceof PasskeyError) return Response.json({ error: err.message }, { status: err.status });
     console.error("[nexus]", err);
     return Response.json({ error: "Something went wrong" }, { status: 500 });
   }

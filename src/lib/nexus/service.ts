@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import { STEP_UP_MIN_CENTS, stepUpRequired } from "./step-up";
 import { negotiate } from "./agents/coordinator";
 import { classifyFollowUp, explainRanking, understandIntent } from "./agents/llm";
 import { summarizeIntent } from "./intent";
@@ -119,6 +120,10 @@ async function requireSession(id: string): Promise<CommerceSession> {
   const s = await store.getSession(id);
   if (!s) throw new NexusError("Session not found", 404);
   return s;
+}
+
+export async function getOrder(id: string): Promise<NexusOrder> {
+  return requireOrder(id);
 }
 
 async function requireOrder(id: string): Promise<NexusOrder> {
@@ -485,7 +490,12 @@ function lifecycle(o: NexusOrder, state: PaymentState, detail: string) {
   o.payment?.lifecycle.push({ state, at: nowIso(), detail });
 }
 
-export async function approveOrder(orderId: string, body: { termsHash: string; amountCents: number; agreementVersion: number }): Promise<NexusOrder> {
+/**
+ * The customer approves the exact order. Approvals of $1,000 or more also need
+ * the customer's passkey, verified by the API route before it calls this
+ * (`stepUp: "passkey"`); without it they are refused here.
+ */
+export async function approveOrder(orderId: string, body: { termsHash: string; amountCents: number; agreementVersion: number }, opts: { stepUp?: "passkey" } = {}): Promise<NexusOrder> {
   const order = await requireOrder(orderId);
   if (order.status !== "awaiting_approval") {
     if (order.status === "approved" && order.approval?.termsHash === body.termsHash) return order;
@@ -506,6 +516,9 @@ export async function approveOrder(orderId: string, body: { termsHash: string; a
   if (new Date(order.terms.expiresAt).getTime() < Date.now()) {
     throw new NexusError("The merchant's offer has expired. Re-negotiate to get fresh terms.", 409);
   }
+  if (stepUpRequired(order) && opts.stepUp !== "passkey") {
+    throw new NexusError(`Approvals of ${formatMoney(STEP_UP_MIN_CENTS)} or more need your passkey. Confirm it's you and try again.`, 403);
+  }
   return store.updateOrder(orderId, (o) => {
     o.status = "approved";
     const approvedAt = nowIso();
@@ -519,7 +532,9 @@ export async function approveOrder(orderId: string, body: { termsHash: string; a
       expiresAt: new Date(Date.parse(approvedAt) + APPROVAL_TTL_MS).toISOString(),
     };
     o.approval = { ...unsigned, signature: signApproval(o.id, unsigned) };
-    o.timeline.push(timeline("Customer approved", `Approved ${formatMoney(body.amountCents)} for exact terms ${body.termsHash.slice(0, 10)}…`));
+    o.timeline.push(
+      timeline("Customer approved", `Approved ${formatMoney(body.amountCents)} for exact terms ${body.termsHash.slice(0, 10)}…${opts.stepUp === "passkey" ? " · confirmed with passkey" : ""}`),
+    );
   });
 }
 

@@ -77,7 +77,7 @@ describe("security in the live flow", () => {
     for await (const e of streamNegotiation(session.id)) void e;
     const s = (await store.getSession(session.id))!;
     const { order } = await lockDealAndPrepareOrder(s.id, s.result!.recommendedOfferId!);
-    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion });
+    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion }, { stepUp: "passkey" });
     return order;
   }
 

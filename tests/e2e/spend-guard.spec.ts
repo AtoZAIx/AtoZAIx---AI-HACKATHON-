@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { addPasskeyDevice, passkeyIfAsked } from "./passkey-helper";
 
 /** A real negotiated order, waiting for approval. */
 async function pendingOrder(request: APIRequestContext) {
@@ -33,6 +34,7 @@ async function savePlan(page: Page, enjoyDollars: number) {
 }
 
 test("Spend Guard locks approval when a purchase is over the customer's plan, until they choose to go over", async ({ page, request }) => {
+  await addPasskeyDevice(page);
   const order = await pendingOrder(request);
   await savePlan(page, 300); // far below the ~$900 MacBook
   await page.goto(`/orders/${order.id}`);
@@ -43,7 +45,11 @@ test("Spend Guard locks approval when a purchase is over the customer's plan, un
   await page.getByTestId("consent").check();
   await expect(page.getByTestId("approve-order")).toBeDisabled(); // the agent can't overspend
   await page.getByTestId("spend-guard-override").check();
-  await expect(page.getByTestId("approve-order")).toBeEnabled(); // only the customer can
+  // Going over the plan is confirmed with the customer's passkey: only the customer can.
+  await expect(page.getByTestId("passkey-step")).toContainText("go over your plan");
+  await expect(page.getByTestId("approve-order")).toBeDisabled();
+  await passkeyIfAsked(page);
+  await expect(page.getByTestId("approve-order")).toBeEnabled();
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   expect(results.violations.map((v) => v.id)).toEqual([]);
 });

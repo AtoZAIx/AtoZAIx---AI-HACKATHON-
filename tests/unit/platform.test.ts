@@ -109,14 +109,14 @@ describe("approval is bound to the agreement version", () => {
     expect(cancelled.status).toBe("cancelled");
     const after = await store.remainingBudget(order.merchantId);
     expect(after.concessionCents).toBeGreaterThan(before.concessionCents);
-    await expect(approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: 1 })).rejects.toThrow();
+    await expect(approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: 1 }, { stepUp: "passkey" })).rejects.toThrow();
 
     for await (const e of streamNegotiation(s.id)) void e;
     const again = (await store.getSession(s.id))!;
     const second = await lockDealAndPrepareOrder(again.id, again.result!.recommendedOfferId!);
     expect(second.order.agreementVersion).toBe(2);
-    await expect(approveOrder(second.order.id, { termsHash: second.order.termsHash, amountCents: second.order.totalCents, agreementVersion: 1 })).rejects.toThrow(/doesn't match/);
-    expect((await approveOrder(second.order.id, { termsHash: second.order.termsHash, amountCents: second.order.totalCents, agreementVersion: 2 })).status).toBe("approved");
+    await expect(approveOrder(second.order.id, { termsHash: second.order.termsHash, amountCents: second.order.totalCents, agreementVersion: 1 }, { stepUp: "passkey" })).rejects.toThrow(/doesn't match/);
+    expect((await approveOrder(second.order.id, { termsHash: second.order.termsHash, amountCents: second.order.totalCents, agreementVersion: 2 }, { stepUp: "passkey" })).status).toBe("approved");
   });
 });
 
@@ -124,7 +124,7 @@ describe("payment lifecycle", () => {
   async function paid() {
     const s = await negotiated();
     const { order } = await lockDealAndPrepareOrder(s.id, s.result!.recommendedOfferId!);
-    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion });
+    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion }, { stepUp: "passkey" });
     const { paypalOrderId } = await startPayment(order.id, "http://localhost:3000");
     await simulatorApprove(order.id, paypalOrderId);
     return capturePayment(order.id, paypalOrderId);

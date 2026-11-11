@@ -19,8 +19,9 @@ The story in one line: *AI agents negotiate for you, but they can never spend pa
    - One goal: **Buy a house**, target ₹50,00,000, **₹5,00,000 already saved**, 5-year lock
 
    This makes Spend Guard show "paid from your House fund" in scene 3.
-4. Browser at 1440 × 900, zoom 110%, notifications off. Close every other tab.
-5. **Do one full practice run**, then start recording from the home page.
+4. **Set up the passkey once** on the device you record with: open any order of $1,000 or more and click **Set up a passkey (one time)**. On camera you then only see the quick Touch ID / Face ID prompt.
+5. Browser at 1440 × 900, zoom 110%, notifications off. Close every other tab.
+6. **Do one full practice run**, then start recording from the home page.
 
 ---
 
@@ -33,7 +34,7 @@ The story in one line: *AI agents negotiate for you, but they can never spend pa
 | **0:50–1:05**<br>The pick | The **Recommended** card: 3-bed home, **$400,673, You save $19,326**, "Book now with a $4,007 refundable token". Click **Choose this deal**. | "It found a 3-bed home for $400,673: nearly $19,000 below asking. For a house, PayPal takes only a refundable booking token of $4,007. The rest is settled with the seller at closing." |
 | **1:05–1:15**<br>Safety checks | **Deal locked: All safety checks passed.** Click **See the checks** for one second, then **Review & pay $4,007 token**. | "Before anything is charged, every term is re-checked and signed: the price, the requirements and the seller's limits. If anything changes, I have to approve again." |
 | **1:15–1:40**<br>Spend Guard | Approval page. Point at the booking summary (agreed total, token, paid at closing), then at **Spend Guard: fits your plan**, paid from your **House** fund. | "This is Spend Guard. It checks the purchase against my own Money plan, right here in my browser. The token comes from my House fund, which covers 1% of the price so far. If it didn't fit, approval would stay locked until I chose to go over. The agent can never do that for me." |
-| **1:40–2:00**<br>PayPal | Tick the consent box. Click **Approve & Pay Token with PayPal**, then **Pay with PayPal**. In the Sandbox popup, approve. Then show **order confirmed**. | "I approve the exact amount, and PayPal handles the payment. This is the PayPal Sandbox, so it's test money. The order is only confirmed once PayPal's signed webhook arrives." |
+| **1:40–2:00**<br>Passkey + PayPal | Point at **Confirm it's you**. Tick the consent box, click **Approve & Pay Token with PayPal**, and use Touch ID / Face ID. Then **Pay with PayPal**, approve in the Sandbox popup, and show **order confirmed**. | "Anything over $1,000 needs my passkey, Face ID here, and the server checks it, so no agent can approve for me. Then PayPal takes the payment. This is the Sandbox, so it's test money." |
 | **2:00–2:40**<br>Money plan | Go to **Money plan**. In **Payments**, click **Try an example**, then **Detect**: Swiggy, DMart and Netflix are sorted. Click **Add 3 payments**. Scroll to **Spend up to this much**: Rent shows **Paid**, and **Bills, transport and phone** shows today's amount and "Spent on". End on **Automatic payments**. | "Nexus also plans the money behind the purchase. I paste my bank messages, and it sorts each payment: Swiggy to eating out, DMart to groceries. It learns from my corrections, and it runs on my device only. Rent is on auto-pay. Every category tells me what I can still spend today. And my house fund saves automatically each month." |
 | **2:40–2:50**<br>Close | Back to the home page, or the **Security** page with "Audit log intact". | "Agents that negotiate, rules that can't be talked around, and PayPal at the moment you say yes. That's PayPal Nexus." |
 
@@ -50,6 +51,7 @@ The story in one line: *AI agents negotiate for you, but they can never spend pa
 
 - **The Sandbox popup is blocked or slow:** cut, then re-record from 1:40. If you have to, run without Sandbox keys: **Pay with PayPal** then opens the built-in payment simulator. Say "in demo mode" instead of "Sandbox".
 - **The negotiation looks slow:** keep talking. It always finishes within about 15 seconds. You can speed it up 1.5× in editing.
+- **The passkey prompt doesn't appear:** passkeys need https (the Render URL) or localhost. Record on one of those, not on a LAN IP address.
 - **Spend Guard says "over your plan":** the House fund wasn't saved in step 3 of the prep. Fix it in **Money plan** and reload the order page.
 
 ## Optional 10-second extras (only if you're under time)

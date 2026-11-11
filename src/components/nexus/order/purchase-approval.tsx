@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightIcon, Loader2Icon, LockIcon, TimerIcon } from "lucide-react";
+import { ArrowRightIcon, FingerprintIcon, Loader2Icon, LockIcon, TimerIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { AgentAvatar } from "@/components/nexus/agent-avatar";
@@ -13,15 +13,24 @@ import { formatMoney } from "@/lib/nexus/money";
 import type { Purchase } from "@/lib/nexus/budget";
 import type { NexusOrder } from "@/lib/nexus/types";
 import { SpendGuard } from "./spend-guard";
+import { PasskeyStep, type PasskeyState } from "./passkey-step";
+import { stepUpRequired } from "@/lib/nexus/step-up";
 import { capitalize, dealKind, termText } from "@/lib/nexus/vocab";
 
 /** High-trust approval: the customer approves these exact terms, this version, this amount. */
-export function PurchaseApproval({ order, expiresInMs, busy, onApprove, purchases = [] }: { order: NexusOrder; expiresInMs: number; busy: boolean; onApprove: () => void; purchases?: Purchase[] }) {
+export function PurchaseApproval({ order, expiresInMs, busy, onApprove, purchases = [] }: { order: NexusOrder; expiresInMs: number; busy: boolean; onApprove: (withPasskey: boolean) => void; purchases?: Purchase[] }) {
   const [consent, setConsent] = useState(false);
   // Spend Guard: approval stays locked while the purchase is over the customer's plan, until they choose to go over.
   const [guardBlocks, setGuardBlocks] = useState(false);
   const [override, setOverride] = useState(false);
   const onBlockingChange = useCallback((b: boolean) => setGuardBlocks(b), []);
+  // Passkey step-up: required by the server for big amounts; also asked when the customer overrides Spend Guard.
+  const [passkey, setPasskey] = useState<PasskeyState>("checking");
+  const onPasskeyState = useCallback((s: PasskeyState) => setPasskey(s), []);
+  const bigAmount = stepUpRequired(order);
+  const overPlan = guardBlocks || override;
+  const askPasskey = bigAmount || (override && passkey !== "unsupported");
+  const passkeyBlocks = askPasskey && passkey !== "ready";
   const t = order.terms;
   const product = getProduct(t.productId);
   const merchant = MERCHANT_DIRECTORY[order.merchantId];
@@ -114,6 +123,7 @@ export function PurchaseApproval({ order, expiresInMs, busy, onApprove, purchase
           onOverride={setOverride}
           onBlockingChange={onBlockingChange}
         />
+        {(bigAmount || (overPlan && override)) && <PasskeyStep reason={bigAmount ? "amount" : "over-plan"} onState={onPasskeyState} />}
         <div className="flex items-start gap-3 text-sm">
           <input
             id="approval-consent"
@@ -147,8 +157,8 @@ export function PurchaseApproval({ order, expiresInMs, busy, onApprove, purchase
           <Button asChild variant="outline" size="lg">
             <Link href={`/deals/${order.sessionId}`}>Review Deal</Link>
           </Button>
-          <Button size="lg" disabled={!consent || expired || busy || guardBlocks} onClick={onApprove} data-testid="approve-order">
-            {busy ? <Loader2Icon className="animate-spin" /> : <LockIcon />} {booking ? "Approve & Pay Token with PayPal" : "Approve & Continue to PayPal"} <ArrowRightIcon />
+          <Button size="lg" disabled={!consent || expired || busy || guardBlocks || passkeyBlocks} onClick={() => onApprove(askPasskey)} data-testid="approve-order">
+            {busy ? <Loader2Icon className="animate-spin" /> : askPasskey ? <FingerprintIcon /> : <LockIcon />} {booking ? "Approve & Pay Token with PayPal" : "Approve & Continue to PayPal"} <ArrowRightIcon />
           </Button>
         </div>
       </div>

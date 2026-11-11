@@ -1,7 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
+import { addPasskeyDevice, passkeyIfAsked } from "./passkey-helper";
 
-test.beforeEach(async ({ request }) => {
+test.beforeEach(async ({ request, page }) => {
   expect((await request.post("/api/dev/reset")).ok()).toBe(true);
+  await addPasskeyDevice(page); // Big approvals ask for a passkey: this device has one, like Face ID.
 });
 
 async function startFromDashboard(page: Page, text: string, limit?: string) {
@@ -33,6 +35,7 @@ test("dashboard → live negotiation → verify → approve → pay → payment 
   const total = (await page.getByTestId("order-total").textContent())!.split(" ")[0].trim();
   await expect(page.getByTestId("approve-order")).toBeDisabled();
   await page.getByTestId("consent").check();
+  await passkeyIfAsked(page);
   await page.getByTestId("approve-order").click();
 
   await page.getByTestId("pay-simulated").click();
@@ -110,6 +113,7 @@ test("pay by test card: a bad number is declined, a test Visa goes through", asy
   await recommended.getByRole("button", { name: "Choose this deal" }).click();
   await page.getByTestId("review-order").click();
   await page.getByTestId("consent").check();
+  await passkeyIfAsked(page);
   await page.getByTestId("approve-order").click();
 
   await page.getByTestId("pay-card").click();

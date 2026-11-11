@@ -1,8 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { addPasskeyDevice, passkeyIfAsked } from "./passkey-helper";
 
-test.beforeEach(async ({ request }) => {
+test.beforeEach(async ({ request, page }) => {
   expect((await request.post("/api/dev/reset")).ok()).toBe(true);
+  await addPasskeyDevice(page); // Big approvals ask for a passkey: this device has one, like Face ID.
 });
 
 test("negotiate a house in the app → approve and pay only the refundable booking token", async ({ page }) => {
@@ -37,6 +39,7 @@ test("negotiate a house in the app → approve and pay only the refundable booki
   expect(results.violations.map((v) => v.id)).toEqual([]);
 
   await page.getByTestId("consent").check();
+  await passkeyIfAsked(page);
   await page.getByTestId("approve-order").click();
   await page.getByTestId("pay-simulated").click();
   await expect(page.getByRole("dialog")).toContainText(token);
@@ -76,5 +79,38 @@ test("a rental is checked against the Rent amount in the customer's plan", async
   await page.getByTestId("consent").check();
   await expect(page.getByTestId("approve-order")).toBeDisabled();
   await page.getByTestId("spend-guard-override").check();
+  // The $1,028 token is over $1,000, so it also needs the customer's passkey.
+  await expect(page.getByTestId("passkey-step")).toBeVisible();
+  await passkeyIfAsked(page);
   await expect(page.getByTestId("approve-order")).toBeEnabled();
+});
+
+test("a big approval needs the customer's passkey, checked on the server", async ({ page, request }) => {
+  const { session } = await (await request.post("/api/sessions", { data: { text: "buy a house in Austin under $450,000 with 3 bedrooms" } })).json();
+  await (await request.post(`/api/sessions/${session.id}/negotiate`)).text();
+  const { session: done } = await (await request.get(`/api/sessions/${session.id}`)).json();
+  const { order } = await (await request.post(`/api/sessions/${session.id}/lock`, { data: { offerId: done.result.recommendedOfferId } })).json();
+
+  // Skipping the screen and calling the API directly doesn't work: no passkey, no approval.
+  const direct = await request.post(`/api/orders/${order.id}/approve`, { data: { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion } });
+  expect(direct.status()).toBe(403);
+  expect((await direct.json()).error).toMatch(/need your passkey/);
+
+  await page.goto(`/orders/${order.id}`);
+  const step = page.getByTestId("passkey-step");
+  await expect(step).toHaveAttribute("data-state", "none");
+  await expect(step).toContainText("Confirm it’s you");
+  await page.getByTestId("consent").check();
+  await expect(page.getByTestId("approve-order")).toBeDisabled(); // until a passkey is set up
+  await page.getByTestId("passkey-setup").click();
+  await expect(page.getByTestId("passkey-ready")).toBeVisible();
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  expect(results.violations.map((v) => v.id)).toEqual([]);
+  await page.getByTestId("approve-order").click();
+  await expect(page.getByText("Confirmed with your passkey")).toBeVisible();
+  await expect(page.getByTestId("pay-simulated")).toBeVisible();
+
+  // The passkey is remembered on this device: after a reload it's ready straight away.
+  await page.goto(`/orders/${order.id}`);
+  expect((await (await page.request.get("/api/passkey")).json()).registered).toBe(true);
 });

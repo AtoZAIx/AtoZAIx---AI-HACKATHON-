@@ -72,16 +72,16 @@ describe("deal verification", () => {
 describe("approval and payment", () => {
   it("only accepts approval of the exact amount and terms", async () => {
     const order = await lockedOrder();
-    await expect(approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents - 100, agreementVersion: order.agreementVersion })).rejects.toThrow(/doesn't match/);
-    await expect(approveOrder(order.id, { termsHash: "0".repeat(64), amountCents: order.totalCents, agreementVersion: order.agreementVersion })).rejects.toThrow(/doesn't match/);
+    await expect(approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents - 100, agreementVersion: order.agreementVersion }, { stepUp: "passkey" })).rejects.toThrow(/doesn't match/);
+    await expect(approveOrder(order.id, { termsHash: "0".repeat(64), amountCents: order.totalCents, agreementVersion: order.agreementVersion }, { stepUp: "passkey" })).rejects.toThrow(/doesn't match/);
     await expect(startPayment(order.id, "http://localhost")).rejects.toThrow(/Approve the order/);
-    const approved = await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion });
+    const approved = await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion }, { stepUp: "passkey" });
     expect(approved.status).toBe("approved");
   });
 
   it("confirms only after capture and webhook verification", async () => {
     const order = await lockedOrder();
-    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion });
+    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion }, { stepUp: "passkey" });
     const { paypalOrderId } = await paidThroughSimulator(order.id);
     const done = await capturePayment(order.id, paypalOrderId);
     expect(done.status).toBe("confirmed");
@@ -91,14 +91,14 @@ describe("approval and payment", () => {
 
   it("will not capture before the buyer approves on PayPal", async () => {
     const order = await lockedOrder();
-    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion });
+    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion }, { stepUp: "passkey" });
     const { paypalOrderId } = await startPayment(order.id, "http://localhost");
     await expect(capturePayment(order.id, paypalOrderId)).rejects.toThrow(/ORDER_NOT_APPROVED/);
   });
 
   it("fails verification when the captured amount differs", async () => {
     const order = await lockedOrder();
-    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion });
+    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion }, { stepUp: "passkey" });
     const { paypalOrderId } = await paidThroughSimulator(order.id);
     simulatedGateway.tamper(paypalOrderId, order.totalCents - 5000);
     const done = await capturePayment(order.id, paypalOrderId);
@@ -108,7 +108,7 @@ describe("approval and payment", () => {
 
   it("rejects forged webhooks and ignores duplicates", async () => {
     const order = await lockedOrder();
-    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion });
+    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion }, { stepUp: "passkey" });
     const { paypalOrderId } = await paidThroughSimulator(order.id);
     await capturePayment(order.id, paypalOrderId);
     expect((await simulateForgedWebhook(order.id)).status).toBe(401);

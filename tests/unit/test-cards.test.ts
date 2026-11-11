@@ -128,7 +128,7 @@ describe("paying by test card in demo checkout", () => {
     for await (const e of streamNegotiation(session.id)) void e;
     const s = (await store.getSession(session.id))!;
     const { order } = await lockDealAndPrepareOrder(s.id, s.result!.recommendedOfferId!);
-    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion });
+    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion }, { stepUp: "passkey" });
     const { paypalOrderId } = await startPayment(order.id, "http://localhost:3000");
 
     const declined = await simulatorPayByCard(order.id, paypalOrderId, { number: "4000000000000002", expiry: "1230", settings: DEFAULT_CARD_SETTINGS });
@@ -162,7 +162,7 @@ describe("paying by test card in demo checkout", () => {
     for await (const e of streamNegotiation(session.id)) void e;
     const s = (await store.getSession(session.id))!;
     const { order } = await lockDealAndPrepareOrder(s.id, s.result!.recommendedOfferId!);
-    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion });
+    await approveOrder(order.id, { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion }, { stepUp: "passkey" });
     const { paypalOrderId } = await startPayment(order.id, "http://localhost:3000");
     const res = await simulatorPayByCard(order.id, paypalOrderId, { number: "5555555555554444", expiry: "1230", settings: { ...DEFAULT_CARD_SETTINGS, processor: "elavon" } });
     expect(res.card.result).toBe(amountResult(order.totalCents, "elavon"));

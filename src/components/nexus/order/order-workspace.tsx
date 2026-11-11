@@ -10,6 +10,7 @@ import { OrderStatusBadge } from "@/components/nexus/common/status-badge";
 import { ProductTile } from "@/components/nexus/product-tile";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/nexus/client";
+import { confirmWithPasskey } from "@/lib/nexus/passkey-client";
 import { getProduct } from "@/lib/nexus/catalog";
 import { MERCHANT_DIRECTORY } from "@/lib/nexus/directory";
 import { formatMoney } from "@/lib/nexus/money";
@@ -51,15 +52,17 @@ export function OrderWorkspace({ initial, payments, purchases = [] }: { initial:
     return () => clearInterval(t);
   }, [order.status, refresh]);
 
-  async function approve() {
+  async function approve(withPasskey: boolean) {
     setBusy(true);
     try {
+      // Big approvals: the passkey check is bound to this order's amount and terms, and verified on the server.
+      const passkey = withPasskey ? await confirmWithPasskey(order.id) : undefined;
       const data = await api<{ order: NexusOrder }>(`/api/orders/${order.id}/approve`, {
-        json: { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion },
-        headers: { "Idempotency-Key": `approve-${order.id}-${order.termsHash.slice(0, 16)}-v${order.agreementVersion}` },
+        json: { termsHash: order.termsHash, amountCents: order.totalCents, agreementVersion: order.agreementVersion, ...(passkey ? { passkey } : {}) },
+        headers: { "Idempotency-Key": `approve-${order.id}-${order.termsHash.slice(0, 16)}-v${order.agreementVersion}${passkey ? `-pk-${passkey.signature.slice(0, 12)}` : ""}` },
       });
       setOrder(data.order);
-      toast.success("Approved. Continue to PayPal to pay.");
+      toast.success(passkey ? "Confirmed with your passkey. Continue to PayPal to pay." : "Approved. Continue to PayPal to pay.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Approval failed");
       await refresh().catch(() => null);
