@@ -132,7 +132,8 @@ export function buildOrderBody(input: CreateOrderInput) {
         experience_context: {
           brand_name: "PayPal Nexus",
           user_action: "PAY_NOW",
-          shipping_preference: "GET_FROM_FILE",
+          // A booking token (property, rental, car) ships nothing.
+          shipping_preference: input.order.booking ? "NO_SHIPPING" : "GET_FROM_FILE",
           return_url: input.returnUrl,
           cancel_url: input.cancelUrl,
         },

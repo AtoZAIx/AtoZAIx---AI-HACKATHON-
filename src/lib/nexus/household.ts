@@ -128,7 +128,7 @@ export function setCategory(
   const amountCents = monthlyFrom(c.enteredCents, frequency);
   const existing = plan.bills.find((b) => b.group === c.group && b.name === c.name);
   if (c.enteredCents <= 0) return existing ? { ...plan, bills: plan.bills.filter((b) => b !== existing) } : plan;
-  const item: BudgetItem = { id: existing?.id ?? catId(), name: c.name, group: c.group, kind: c.kind, frequency, enteredCents: c.enteredCents, fixed: c.fixed ?? existing?.fixed, amountCents, pct: null, limitCents: existing?.limitCents ?? null, autoPay: existing?.autoPay };
+  const item: BudgetItem = { id: existing?.id ?? catId(), name: c.name, group: c.group, kind: c.kind, frequency, enteredCents: c.enteredCents, fixed: c.fixed ?? existing?.fixed, amountCents, pct: null, limitCents: existing?.limitCents ?? null, autoPay: existing?.autoPay, ...(existing?.recurring ? { recurring: existing.recurring } : {}) };
   return { ...plan, bills: existing ? plan.bills.map((b) => (b === existing ? item : b)) : [...plan.bills, item] };
 }
 
@@ -886,6 +886,10 @@ export function quickPlan(a: QuickAnswers, base: MoneyPlan, now: string): MoneyP
       return { ...b, id: before?.id ?? b.id, autoPay: before && before.autoPay !== undefined ? before.autoPay : rentDefault };
     }),
   };
+
+  // Monthly payments the user added (electricity, Netflix…) are theirs: keep them as they are.
+  const extra = base.bills.filter((b) => b.recurring && !p.bills.some((x) => x.id === b.id));
+  if (extra.length) p = { ...p, bills: [...p.bills, ...extra] };
 
   // BUILD: the savings policy, emergency fund first.
   const essentials = p.bills.filter((b) => (b.kind ?? "need") === "need").reduce((t, b) => t + b.amountCents, 0);

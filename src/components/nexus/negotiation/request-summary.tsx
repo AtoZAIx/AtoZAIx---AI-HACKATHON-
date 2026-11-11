@@ -12,6 +12,7 @@ export function RequestSummary({ session }: { session: CommerceSession }) {
   const must = [
     i.requiredFamily ? `${i.requiredBrand === "Apple" ? "" : `${i.requiredBrand} `}${i.requiredFamily}` : i.requiredBrand ? `Brand: ${i.requiredBrand}` : null,
     i.minRamGb ? `At least ${i.minRamGb}GB memory` : null,
+    i.minBedrooms ? `At least ${i.minBedrooms} bedroom${i.minBedrooms === 1 ? "" : "s"}` : null,
     i.minStorageGb ? `At least ${i.minStorageGb >= 1024 ? `${i.minStorageGb / 1024}TB` : `${i.minStorageGb}GB`} storage` : null,
     i.needsDedicatedGpu ? "Gaming-grade graphics" : null,
     i.maxWeightKg ? `Under ${i.maxWeightKg}kg` : null,

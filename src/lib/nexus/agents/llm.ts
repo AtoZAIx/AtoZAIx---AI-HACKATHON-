@@ -22,7 +22,7 @@ export function llmAgentsEnabled(): boolean {
 const INTENT_SCHEMA = {
   type: "object",
   properties: {
-    category: { type: "string", enum: ["laptop", "monitor", "headphones", "tablet", "phone", "unknown"] },
+    category: { type: "string", enum: ["laptop", "monitor", "headphones", "tablet", "phone", "land", "house", "rental", "car", "unknown"] },
     quantity: { type: "integer" },
     budgetUsd: { type: "number", description: "Maximum delivered total in USD, 0 if not stated" },
     useCase: {
@@ -58,7 +58,7 @@ const orNull = (n: number) => (n > 0 ? n : null);
 
 const IntentZ = z
   .object({
-    category: z.enum(["laptop", "monitor", "headphones", "tablet", "phone", "unknown"]),
+    category: z.enum(["laptop", "monitor", "headphones", "tablet", "phone", "land", "house", "rental", "car", "unknown"]),
     quantity: z.number().int().min(1).max(20),
     budgetUsd: z.number().min(0),
     useCase: z.enum(["video-editing", "gaming", "programming", "student", "business", "travel", "creative", "general", "none"]),
@@ -96,7 +96,7 @@ export async function understandIntent(text: string, base: PurchaseIntent | null
       "You are the Buyer Agent in an agentic commerce network. Extract the shopper's purchase requirements as JSON. " +
       "Only set a field when the shopper states or clearly implies it; otherwise use 0, \"none\" or \"unknown\". Budget is the maximum delivered total in USD. " +
       "If a previous intent is supplied, treat the new message as a refinement of it and carry unchanged fields forward. " +
-      "Supported categories: laptop, monitor, headphones, tablet, phone." +
+      "Supported categories: laptop, monitor, headphones, tablet, phone, land (plots, acreage), house (buying a home), rental (renting a home; budget is the monthly rent), car." +
       TRUST_BOUNDARY,
     prompt: JSON.stringify({ previousIntent: base, message: untrusted("shopper", text) }),
     schema: INTENT_SCHEMA,
@@ -116,6 +116,7 @@ export async function understandIntent(text: string, base: PurchaseIntent | null
     askDiscountPct: r?.askDiscountPct ?? base?.askDiscountPct ?? null,
     useCase: llm.useCase ?? r?.useCase ?? null,
     minRamGb: llm.minRamGb ?? r?.minRamGb ?? null,
+    minBedrooms: r?.minBedrooms ?? null,
     minStorageGb: llm.minStorageGb ?? r?.minStorageGb ?? null,
     maxWeightKg: category === "laptop" ? (llm.maxWeightKg ?? r?.maxWeightKg ?? null) : null,
     needsDedicatedGpu: category === "laptop" && (llm.needsDedicatedGpu || Boolean(r?.needsDedicatedGpu)),

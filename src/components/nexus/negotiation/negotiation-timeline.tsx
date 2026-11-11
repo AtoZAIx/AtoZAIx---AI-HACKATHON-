@@ -112,7 +112,7 @@ export function NegotiationTimeline({ session, streaming, lastEventAt, embedded 
                       </div>
                       <p className="text-sm leading-relaxed">{m.text}</p>
                       {offer?.terms && <OfferCard offer={offer} previous={prev} compact />}
-                      {counter && <CounterOfferCard counter={counter} />}
+                      {counter && <CounterOfferCard counter={counter} category={session.intent?.category} />}
                       {status && <StatusBadge tone={status.tone} label={status.label} />}
                     </div>
                   </motion.li>

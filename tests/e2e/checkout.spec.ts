@@ -77,7 +77,7 @@ test("merchant workspace requires sign-in and its API rejects shoppers", async (
 
   await page.goto("/merchant");
   await expect(page.getByRole("heading", { name: "Merchant sign-in" })).toBeVisible();
-  await page.getByRole("radio", { name: /Vantage Electronics/ }).check();
+  await page.getByRole("radio", { name: /Vantage Market/ }).check();
   await page.getByLabel("Passcode").fill("wrong");
   await page.getByRole("button", { name: "Sign in to workspace" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "incorrect" })).toBeVisible();

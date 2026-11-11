@@ -1,6 +1,7 @@
 import { findProduct, meetsRequirements } from "./catalog";
 import { MERCHANT_DIRECTORY } from "./directory";
 import { formatMoney } from "./money";
+import { VOCAB, vocabFor } from "./vocab";
 import { bundleValue, incentivesAffordable, minimumUnitPrice, offerTotal, priceConcession } from "./agents/pricing";
 import type { CheckStatus, Listing, MerchantProfile, Offer, OfferTerms, PurchaseIntent, VerificationCheck, VerificationReport } from "./types";
 
@@ -86,6 +87,7 @@ export function verifyDeal(input: DealVerificationInput): VerificationReport {
     req.ok ? "Every stated requirement is satisfied" : req.misses.join("; "),
     [
       ...(intent.minRamGb ? [`RAM ≥ ${intent.minRamGb}GB: ${product?.specs.ramGb ?? "?"}GB`] : []),
+      ...(intent.minBedrooms ? [`Bedrooms ≥ ${intent.minBedrooms}: ${product?.specs.bedrooms ?? "?"}`] : []),
       ...(intent.minStorageGb ? [`Storage ≥ ${intent.minStorageGb}GB: ${product?.specs.storageGb ?? "?"}GB`] : []),
       ...(intent.needsDedicatedGpu ? [`Dedicated GPU: ${product?.specs.dedicatedGpu ? product.specs.gpu : "no"}`] : []),
       ...(intent.maxWeightKg ? [`Weight ≤ ${intent.maxWeightKg}kg: ${product?.specs.weightKg ?? "?"}kg`] : []),
@@ -126,7 +128,7 @@ export function verifyDeal(input: DealVerificationInput): VerificationReport {
     "Total recomputes and currency is supported",
     recomputed === input.totalCents && terms.currency === "USD",
     true,
-    `${terms.quantity} × ${formatMoney(terms.unitPriceCents)} + ${formatMoney(terms.shippingCents)} shipping = ${formatMoney(recomputed)} ${terms.currency}`,
+    `${terms.quantity} × ${formatMoney(terms.unitPriceCents)} + ${formatMoney(terms.shippingCents)} ${(product ? vocabFor(product.category) : VOCAB.goods).feesNoun.toLowerCase()} = ${formatMoney(recomputed)} ${terms.currency}`,
     [`Agreed total ${formatMoney(input.totalCents)}`, `Settlement currency ${terms.currency} via PayPal`],
   );
 
@@ -186,7 +188,7 @@ export function verifyDeal(input: DealVerificationInput): VerificationReport {
     "Return window matches published policy",
     published === undefined ? "unknown" : terms.returnDays === published,
     true,
-    `${terms.returnDays}-day returns`,
+    (product ? vocabFor(product.category) : VOCAB.goods).returns(terms.returnDays),
     [`Published policy: ${published ?? "unknown"} days`],
   );
 
@@ -216,7 +218,8 @@ export function verifyDeal(input: DealVerificationInput): VerificationReport {
     const minUnit = minimumUnitPrice(merchant, listing, terms);
     const remainingAfterOwnReservation = merchant.policy.remaining;
     const withinPrice = terms.unitPriceCents >= minUnit && terms.unitPriceCents <= listing.maxSellingPriceCents;
-    const withinBudget = !remainingAfterOwnReservation || priceConcession(terms) <= remainingAfterOwnReservation.concessionCents;
+    // Owner listings use the owner's limits (price floor), not the store's promo budget.
+    const withinBudget = listing.sellerListing || !remainingAfterOwnReservation || priceConcession(terms) <= remainingAfterOwnReservation.concessionCents;
     const withinIncentives = incentivesAffordable(merchant, listing, terms);
     add(
       "Profit and concession policy",

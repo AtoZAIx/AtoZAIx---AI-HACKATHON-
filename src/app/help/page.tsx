@@ -13,7 +13,7 @@ const STEPS = [
 ];
 
 const FAQ = [
-  ["Are the merchants real?", "Not yet. Maison Aurum, Vantage Electronics and Cove Commerce are simulated merchants with their own catalogues, stock and confidential pricing rules. They are labelled as simulated throughout."],
+  ["Are the merchants real?", "Not yet. Maison Aurum, Vantage Market and Cove Commerce are simulated merchants with their own catalogues, stock and confidential pricing rules. They are labelled as simulated throughout."],
   ["Can voice buy something on its own?", "No. Voice can describe what you want and select a deal, which prepares an order. Approval always needs an explicit on-screen confirmation."],
   ["What does UNKNOWN mean in verification?", "The engine couldn't confirm that fact. If the check is essential, the deal is blocked exactly as if it had failed. Advisory checks are shown but don't block."],
   ["Why might my approval be invalidated?", "Approvals are bound to an agreement version and terms hash. Re-negotiating or any material change creates a new version that needs your approval."],

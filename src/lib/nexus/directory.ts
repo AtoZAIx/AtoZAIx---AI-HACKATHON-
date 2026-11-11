@@ -14,7 +14,7 @@ export const MERCHANT_DIRECTORY: Record<MerchantId, PublicMerchant> = {
   },
   bolt: {
     id: "bolt",
-    name: "Vantage Electronics",
+    name: "Vantage Market",
     archetype: "competitive",
     tagline: "Lowest delivered price, or we move",
     persona: "Fast, numbers-first and competitive. Will price-match quotes the buyer cites and waive shipping to win.",

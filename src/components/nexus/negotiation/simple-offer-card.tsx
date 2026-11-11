@@ -11,6 +11,7 @@ import { MERCHANT_DIRECTORY } from "@/lib/nexus/directory";
 import { formatMoney } from "@/lib/nexus/money";
 import { offerFacts } from "@/lib/nexus/offer-view";
 import type { CommerceSession, Offer, RankedOffer } from "@/lib/nexus/types";
+import { bookingToken, capitalize, termText } from "@/lib/nexus/vocab";
 
 /** Reasons worth showing a shopper (skip technical or negative ones; those get their own warning). */
 function goodReasons(r: RankedOffer): string[] {
@@ -40,6 +41,8 @@ export function SimpleOfferCard({
   const f = offerFacts(session, offer);
   const merchant = MERCHANT_DIRECTORY[offer.merchantId];
   const reasons = goodReasons(ranked);
+  const words = termText(product.category, t);
+  const token = bookingToken(product.category, f.total);
   return (
     <article
       data-testid={`offer-${offer.merchantId}`}
@@ -58,21 +61,23 @@ export function SimpleOfferCard({
             <p className={cn("font-semibold", pick ? "text-lg" : "")}>{product.name}</p>
             <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
               <span className={cn("size-2 rounded-full", AGENT_STYLE[offer.merchantId].dot)} aria-hidden />
-              from {merchant.name} <SimulatedBadge label="Demo store" />
+              {token ? "listed by" : "from"} {merchant.name} <SimulatedBadge label={token ? "Demo listing" : "Demo store"} />
             </p>
           </div>
           <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
             <li className="flex items-center gap-1.5">
               <TruckIcon className="size-4 text-muted-foreground" aria-hidden />
-              Arrives in {t.deliveryDays} day{t.deliveryDays === 1 ? "" : "s"}
+              {token ? capitalize(words.delivery) : `Arrives in ${t.deliveryDays} day${t.deliveryDays === 1 ? "" : "s"}`}
             </li>
-            <li className="flex items-center gap-1.5">
-              <ShieldIcon className="size-4 text-muted-foreground" aria-hidden />
-              {t.warrantyMonths}-month warranty
-            </li>
+            {words.warranty && (
+              <li className="flex items-center gap-1.5">
+                <ShieldIcon className="size-4 text-muted-foreground" aria-hidden />
+                {capitalize(words.warranty)}
+              </li>
+            )}
             <li className="flex items-center gap-1.5">
               <RotateCcwIcon className="size-4 text-muted-foreground" aria-hidden />
-              {t.returnDays}-day returns
+              {capitalize(words.returns)}
             </li>
           </ul>
           {f.incentives.length > 0 && (
@@ -99,7 +104,12 @@ export function SimpleOfferCard({
             {f.savings > 0 ? (
               <p className="tabular text-sm font-medium text-success-ink">You save {formatMoney(f.savings)}</p>
             ) : (
-              <p className="text-xs text-muted-foreground">Total with delivery</p>
+              <p className="text-xs text-muted-foreground">{token ? `Total ${words.v.totalSuffix}` : "Total with delivery"}</p>
+            )}
+            {token && (
+              <p className="tabular text-xs text-muted-foreground" data-testid={`token-${offer.merchantId}`}>
+                Book now with a {formatMoney(token.tokenCents)} refundable token
+              </p>
             )}
             {session.intent?.askDiscountPct && offer.terms ? (
               <p className="tabular text-xs text-muted-foreground" data-testid={`mutual-${offer.merchantId}`}>

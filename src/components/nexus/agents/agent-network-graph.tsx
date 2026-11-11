@@ -5,7 +5,7 @@ const NODES: Array<{ id: AgentId; x: number; y: number; label: string; sub: stri
   { id: "buyer", x: 110, y: 150, label: "Buyer Agent", sub: "Represents you" },
   { id: "coordinator", x: 360, y: 150, label: "Nexus Coordinator", sub: "Runs the protocol" },
   { id: "atelier", x: 620, y: 52, label: "Maison Aurum", sub: "Premium · simulated" },
-  { id: "bolt", x: 620, y: 150, label: "Vantage Electronics", sub: "Competitive · simulated" },
+  { id: "bolt", x: 620, y: 150, label: "Vantage Market", sub: "Competitive · simulated" },
   { id: "cove", x: 620, y: 248, label: "Cove Commerce", sub: "Retention · simulated" },
 ];
 

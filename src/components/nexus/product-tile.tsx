@@ -1,8 +1,8 @@
-import { HeadphonesIcon, LaptopIcon, MonitorIcon, SmartphoneIcon, TabletIcon } from "lucide-react";
+import { CarIcon, HeadphonesIcon, HomeIcon, KeyRoundIcon, LaptopIcon, MonitorIcon, SmartphoneIcon, TabletIcon, TreesIcon } from "lucide-react";
 import { cn } from "cn";
 import type { Product } from "@/lib/nexus/types";
 
-const ICONS = { laptop: LaptopIcon, monitor: MonitorIcon, headphones: HeadphonesIcon, tablet: TabletIcon, phone: SmartphoneIcon };
+const ICONS = { laptop: LaptopIcon, monitor: MonitorIcon, headphones: HeadphonesIcon, tablet: TabletIcon, phone: SmartphoneIcon, land: TreesIcon, house: HomeIcon, rental: KeyRoundIcon, car: CarIcon };
 
 /** Brand colour for the name on the tile (text only; no logos are bundled). */
 const BRAND_INK: Record<string, string> = {
@@ -18,6 +18,9 @@ const BRAND_INK: Record<string, string> = {
   Sony: "#000000",
   Bose: "#000000",
   LG: "#a50034",
+  Toyota: "#b3141c",
+  Honda: "#1d1d1f",
+  Hyundai: "#002c5f",
 };
 
 /**

@@ -4,6 +4,7 @@ import { cn } from "cn";
 import { getProduct } from "@/lib/nexus/catalog";
 import { formatMoney } from "@/lib/nexus/money";
 import type { Offer } from "@/lib/nexus/types";
+import { termText } from "@/lib/nexus/vocab";
 
 /** Structured offer terms as they changed this round. */
 export function OfferCard({ offer, previous, compact }: { offer: Offer; previous?: Offer; compact?: boolean }) {
@@ -11,6 +12,7 @@ export function OfferCard({ offer, previous, compact }: { offer: Offer; previous
   const t = offer.terms;
   const product = getProduct(t.productId);
   const prev = previous?.terms;
+  const words = termText(product.category, t);
   const delta = previous?.totalCents && offer.totalCents ? offer.totalCents - previous.totalCents : 0;
   return (
     <div className={cn("rounded-xl border bg-background/60", compact ? "p-3" : "p-3.5")}>
@@ -29,13 +31,15 @@ export function OfferCard({ offer, previous, compact }: { offer: Offer; previous
         </div>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
-        <Term icon={ShieldIcon} changed={Boolean(prev && prev.warrantyMonths !== t.warrantyMonths)}>
-          {t.warrantyMonths}-mo warranty
-        </Term>
+        {words.warranty && (
+          <Term icon={ShieldIcon} changed={Boolean(prev && prev.warrantyMonths !== t.warrantyMonths)}>
+            {words.warranty}
+          </Term>
+        )}
         <Term icon={TruckIcon} changed={Boolean(prev && (prev.deliveryDays !== t.deliveryDays || prev.shippingCents !== t.shippingCents))}>
-          {t.deliveryDays}-day{t.express ? " express" : ""} · {t.shippingCents ? `${formatMoney(t.shippingCents)} ship` : "free ship"}
+          {words.delivery} · {words.fees}
         </Term>
-        <Term icon={RotateCcwIcon}>{t.returnDays}-day returns</Term>
+        <Term icon={RotateCcwIcon}>{words.returns}</Term>
         {t.bundle.length > 0 && (
           <Term icon={PackageIcon} changed={Boolean(prev && prev.bundle.length !== t.bundle.length)}>
             {t.bundle.map((b) => b.name).join(", ")}

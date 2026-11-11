@@ -1,5 +1,6 @@
 import { CATEGORY_LABEL, PRODUCTS } from "./catalog";
 import { formatMoney } from "./money";
+import { vocabFor } from "./vocab";
 import type { Category, Priority, PurchaseIntent, UseCase } from "./types";
 
 export interface IntentParse {
@@ -14,6 +15,11 @@ const CATEGORY_PATTERNS: Array<[Category, RegExp]> = [
   ["tablet", /\b(tablets?|ipads?|slates?)\b/i],
   ["headphones", /\b(headphones?|earbuds?|headsets?|earphones?|buds|cans)\b/i],
   ["monitor", /\b(monitors?|displays?|screens?)\b/i],
+  // Property, rentals and cars (after electronics, so "home office monitor" stays a monitor).
+  ["rental", /\b(rent|rental|renting|to rent|for rent|lease|leasing|apartments?|flats?|tenancy)\b/i],
+  ["house", /\b(houses?|homes? to buy|buy (?:a )?home|townhouses?|villas?|condos?|bungalows?|real estate)\b/i],
+  ["land", /\b(land|plots?|acres?|acreage|parcels?|farmland)\b/i],
+  ["car", /\b(cars?|sedans?|suvs?|hatchbacks?|vehicles?|electric vehicle)\b/i],
 ];
 
 const USE_CASE_PATTERNS: Array<[UseCase, RegExp]> = [
@@ -49,6 +55,9 @@ const BRAND_WORDS: Array<[string, RegExp]> = [
   ["Sony", /\bsony\b/i],
   ["Bose", /\bbose\b/i],
   ["LG", /\blg\b/i],
+  ["Toyota", /\btoyota\b/i],
+  ["Honda", /\bhonda\b/i],
+  ["Hyundai", /\bhyundai\b/i],
 ];
 
 /** Product lines shoppers name directly, with the brand and category they imply. First match wins. */
@@ -235,6 +244,7 @@ export function parseIntentRules(text: string, base?: PurchaseIntent | null): In
     askDiscountPct: extractAskDiscount(t) ?? prev?.askDiscountPct ?? null,
     useCase,
     minRamGb: ram ? Number(ram[1]) : (prev?.minRamGb ?? null),
+    minBedrooms: category === "house" || category === "rental" ? (extractBedrooms(t) ?? (prev?.category === category ? (prev?.minBedrooms ?? null) : null)) : null,
     minStorageGb,
     maxWeightKg,
     needsDedicatedGpu: category === "laptop" ? needsDedicatedGpu : false,
@@ -250,6 +260,15 @@ export function parseIntentRules(text: string, base?: PurchaseIntent | null): In
   };
   intent.summary = summarizeIntent(intent);
   return { intent, missing: [] };
+}
+
+/** "3 bedrooms", "2-bed", "2 bhk", "two bedroom". */
+export function extractBedrooms(t: string): number | null {
+  const words: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5 };
+  const m = t.match(/\b(\d|one|two|three|four|five)[\s-]*(?:bed(?:room)?s?|br|bhk)\b/i);
+  if (!m) return null;
+  const n = words[m[1].toLowerCase()] ?? Number(m[1]);
+  return n >= 1 && n <= 9 ? n : null;
 }
 
 const USE_LABEL: Record<UseCase, string> = {
@@ -274,9 +293,10 @@ export const PRIORITY_LABEL: Record<Priority, string> = {
 export function summarizeIntent(i: PurchaseIntent): string {
   const head = `${i.quantity > 1 ? `${i.quantity} × ` : ""}${requestHead(i)}${i.useCase ? ` for ${USE_LABEL[i.useCase]}` : ""}`;
   const parts = [head];
-  if (i.budgetCents) parts.push(`≤ ${formatMoney(i.budgetCents)} delivered`);
+  if (i.budgetCents) parts.push(`≤ ${formatMoney(i.budgetCents)}${vocabFor(i.category).priceSuffix} ${vocabFor(i.category).totalSuffix}`);
   if (i.askDiscountPct) parts.push(`asking ${Math.round(i.askDiscountPct * 100)}% off`);
   if (i.minRamGb) parts.push(`${i.minRamGb}GB+ RAM`);
+  if (i.minBedrooms) parts.push(`${i.minBedrooms}+ bedrooms`);
   if (i.minStorageGb) parts.push(i.minStorageGb >= 1024 ? `${i.minStorageGb / 1024}TB+ storage` : `${i.minStorageGb}GB+ storage`);
   if (i.needsDedicatedGpu) parts.push("dedicated GPU");
   if (i.maxWeightKg) parts.push(`≤ ${i.maxWeightKg}kg`);

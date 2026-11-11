@@ -428,6 +428,163 @@ export const PRODUCTS: Product[] = [
     msrpCents: dollars(899),
     hue: 330,
   },
+  // ---------------- Land, houses, rentals and cars (demo listings, sold on behalf of owners)
+  {
+    id: "land-cedar-grove-plot",
+    name: "Quarter-acre plot, Cedar Grove",
+    brand: "Cedar Grove",
+    family: "Plot",
+    aliases: ["cedar grove plot", "quarter acre plot", "quarter-acre plot"],
+    category: "land",
+    description: "Ready-to-build residential plot on a quiet street, with utilities at the boundary.",
+    specs: { location: "Austin, TX", acres: 0.25, zoning: "Residential" },
+    suitedFor: ["general"],
+    msrpCents: dollars(89_000),
+    hue: 120,
+  },
+  {
+    id: "land-lakeside-plot",
+    name: "Half-acre lakeside plot",
+    brand: "Lakeside",
+    family: "Plot",
+    aliases: ["lakeside plot", "half acre plot", "half-acre plot", "lake plot"],
+    category: "land",
+    description: "Gently sloping plot with a lake view, ten minutes from the marina.",
+    specs: { location: "Lake Travis, TX", acres: 0.5, zoning: "Residential" },
+    suitedFor: ["general"],
+    msrpCents: dollars(165_000),
+    hue: 190,
+  },
+  {
+    id: "land-hill-country-parcel",
+    name: "5-acre Hill Country parcel",
+    brand: "Hill Country",
+    family: "Parcel",
+    aliases: ["hill country parcel", "5 acre", "five acre", "farm land", "farmland"],
+    category: "land",
+    description: "Open acreage with road access, ideal for a small farm or a weekend home.",
+    specs: { location: "Hill Country, TX", acres: 5, zoning: "Agricultural" },
+    suitedFor: ["general"],
+    msrpCents: dollars(240_000),
+    hue: 90,
+  },
+  {
+    id: "house-maple-street",
+    name: "3-bed family home, Maple Street",
+    brand: "Maple Street",
+    family: "House",
+    aliases: ["maple street home", "maple street house", "3 bed house", "3-bed house", "3 bedroom house"],
+    category: "house",
+    description: "Bright family home with a backyard, close to schools and parks.",
+    specs: { location: "Round Rock, TX", bedrooms: 3, bathrooms: 2, areaSqft: 1850 },
+    suitedFor: ["general"],
+    msrpCents: dollars(425_000),
+    hue: 30,
+  },
+  {
+    id: "house-east-townhouse",
+    name: "2-bed townhouse, East Austin",
+    brand: "East Austin",
+    family: "Townhouse",
+    aliases: ["east austin townhouse", "townhouse", "2 bed townhouse", "2-bed townhouse"],
+    category: "house",
+    description: "Modern townhouse with a rooftop deck, walkable to cafes.",
+    specs: { location: "Austin, TX", bedrooms: 2, bathrooms: 2, areaSqft: 1280 },
+    suitedFor: ["general"],
+    msrpCents: dollars(345_000),
+    hue: 10,
+  },
+  {
+    id: "house-cedar-park-garden",
+    name: "4-bed house with garden, Cedar Park",
+    brand: "Cedar Park",
+    family: "House",
+    aliases: ["cedar park house", "4 bed house", "4-bed house", "house with garden", "4 bedroom house"],
+    category: "house",
+    description: "Spacious four-bedroom home with a large garden and a two-car garage.",
+    specs: { location: "Cedar Park, TX", bedrooms: 4, bathrooms: 3, areaSqft: 2600 },
+    suitedFor: ["general"],
+    msrpCents: dollars(560_000),
+    hue: 60,
+  },
+  {
+    id: "rental-downtown-1bed",
+    name: "1-bed apartment, Downtown",
+    brand: "Downtown",
+    family: "Apartment",
+    aliases: ["downtown apartment", "1 bed apartment", "1-bed apartment", "one bedroom apartment", "studio"],
+    category: "rental",
+    description: "Light-filled one-bedroom in a building with a gym, near offices.",
+    specs: { location: "Austin, TX", bedrooms: 1, bathrooms: 1, areaSqft: 650, furnished: false },
+    suitedFor: ["business", "general"],
+    msrpCents: dollars(1_650),
+    hue: 250,
+  },
+  {
+    id: "rental-campus-2bed",
+    name: "2-bed furnished apartment near campus",
+    brand: "Campus",
+    family: "Apartment",
+    aliases: ["campus apartment", "2 bed apartment", "2-bed apartment", "two bedroom apartment", "furnished apartment"],
+    category: "rental",
+    description: "Furnished two-bedroom, a short walk from the university.",
+    specs: { location: "Austin, TX", bedrooms: 2, bathrooms: 1, areaSqft: 950, furnished: true },
+    suitedFor: ["student", "general"],
+    msrpCents: dollars(2_100),
+    hue: 280,
+  },
+  {
+    id: "rental-pflugerville-house",
+    name: "3-bed house for rent, Pflugerville",
+    brand: "Pflugerville",
+    family: "House to rent",
+    aliases: ["house for rent", "3 bed rental", "3-bed rental", "family rental", "pflugerville"],
+    category: "rental",
+    description: "Family house with a yard and a garage, in a quiet cul-de-sac.",
+    specs: { location: "Pflugerville, TX", bedrooms: 3, bathrooms: 2, areaSqft: 1700, furnished: false },
+    suitedFor: ["general"],
+    msrpCents: dollars(2_600),
+    hue: 40,
+  },
+  {
+    id: "toyota-camry-2026",
+    name: "Toyota Camry 2026",
+    brand: "Toyota",
+    family: "Camry",
+    aliases: ["toyota camry", "camry"],
+    category: "car",
+    description: "Comfortable mid-size hybrid sedan with excellent fuel economy.",
+    specs: { year: 2026, fuel: "Hybrid", seats: 5 },
+    suitedFor: ["general", "business", "travel"],
+    msrpCents: dollars(29_500),
+    hue: 350,
+  },
+  {
+    id: "honda-crv-hybrid-2026",
+    name: "Honda CR-V Hybrid 2026",
+    brand: "Honda",
+    family: "CR-V",
+    aliases: ["honda cr-v", "cr-v", "crv", "honda crv"],
+    category: "car",
+    description: "Roomy hybrid SUV for families and road trips.",
+    specs: { year: 2026, fuel: "Hybrid", seats: 5 },
+    suitedFor: ["general", "travel"],
+    msrpCents: dollars(35_500),
+    hue: 0,
+  },
+  {
+    id: "hyundai-ioniq-5-2026",
+    name: "Hyundai Ioniq 5 2026",
+    brand: "Hyundai",
+    family: "Ioniq",
+    aliases: ["hyundai ioniq 5", "ioniq 5", "ioniq"],
+    category: "car",
+    description: "Electric crossover with fast charging and about 300 miles of range.",
+    specs: { year: 2026, fuel: "Electric", seats: 5, rangeMiles: 300 },
+    suitedFor: ["general", "travel", "business"],
+    msrpCents: dollars(43_000),
+    hue: 200,
+  },
 ];
 
 const PRODUCT_INDEX = new Map(PRODUCTS.map((p) => [p.id, p]));
@@ -450,6 +607,7 @@ export function meetsRequirements(product: Product, intent: PurchaseIntent): { o
   if (intent.requiredFamily && product.family !== intent.requiredFamily) misses.push(`not a ${intent.requiredFamily}`);
   const s = product.specs;
   if (intent.minRamGb && (s.ramGb ?? 0) < intent.minRamGb) misses.push(`${s.ramGb ?? 0}GB RAM < ${intent.minRamGb}GB`);
+  if (intent.minBedrooms && (s.bedrooms ?? 0) < intent.minBedrooms) misses.push(`${s.bedrooms ?? 0} bedrooms < ${intent.minBedrooms}`);
   if (intent.minStorageGb && (s.storageGb ?? 0) < intent.minStorageGb) misses.push(`${s.storageGb ?? 0}GB storage < ${intent.minStorageGb}GB`);
   if (intent.needsDedicatedGpu && !s.dedicatedGpu) misses.push("no dedicated GPU");
   if (intent.maxWeightKg && (s.weightKg ?? 99) > intent.maxWeightKg) misses.push(`${s.weightKg}kg > ${intent.maxWeightKg}kg`);
@@ -477,6 +635,10 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   headphones: "Headphones",
   tablet: "Tablet",
   phone: "Smartphone",
+  land: "Land",
+  house: "House",
+  rental: "Rental home",
+  car: "Car",
 };
 
 export function specLine(product: Product): string {
@@ -491,5 +653,15 @@ export function specLine(product: Product): string {
   if (s.noiseCancelling) parts.push("Active noise cancelling");
   if (s.batteryHours && product.category === "headphones") parts.push(`${s.batteryHours}h battery`);
   if (s.weightKg && product.category === "laptop") parts.push(`${s.weightKg}kg`);
+  if (s.bedrooms) parts.push(`${s.bedrooms} bed${s.bathrooms ? ` · ${s.bathrooms} bath` : ""}`);
+  if (s.areaSqft) parts.push(`${s.areaSqft.toLocaleString("en-US")} sq ft`);
+  if (s.acres) parts.push(`${s.acres} acre${s.acres === 1 ? "" : "s"}`);
+  if (s.zoning) parts.push(s.zoning);
+  if (s.furnished != null && product.category === "rental") parts.push(s.furnished ? "Furnished" : "Unfurnished");
+  if (s.year) parts.push(String(s.year));
+  if (s.fuel) parts.push(s.fuel);
+  if (s.rangeMiles) parts.push(`${s.rangeMiles}-mile range`);
+  if (s.seats) parts.push(`${s.seats} seats`);
+  if (s.location) parts.push(s.location);
   return parts.join(" · ");
 }

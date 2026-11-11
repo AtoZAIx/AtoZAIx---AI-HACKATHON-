@@ -179,6 +179,6 @@ describe("premium store names in chat", () => {
     expect(classifyFollowUpRules("I'll take Maison Aurum", session)).toEqual({ action: "choose", merchantId: "atelier" });
     expect(classifyFollowUpRules("go with Bolt", session)).toEqual({ action: "choose", merchantId: "bolt" });
     expect(MERCHANT_DIRECTORY.atelier.name).toBe("Maison Aurum");
-    expect(MERCHANT_DIRECTORY.bolt.name).toBe("Vantage Electronics");
+    expect(MERCHANT_DIRECTORY.bolt.name).toBe("Vantage Market");
   });
 });

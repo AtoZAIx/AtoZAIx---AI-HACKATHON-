@@ -2,6 +2,7 @@ import { fitScore, getProduct, meetsRequirements } from "../catalog";
 import { MERCHANT_DIRECTORY as MERCHANTS } from "../directory";
 import { newId, nowIso } from "../ids";
 import { formatMoney } from "../money";
+import { VOCAB, vocabFor } from "../vocab";
 import type { BuyerCounter, Offer, Priority, PurchaseIntent, RankedOffer, ScoreBreakdown } from "../types";
 import { bundleValue } from "./pricing";
 
@@ -90,8 +91,10 @@ export function rankOffers(offers: Offer[], intent: PurchaseIntent): RankedOffer
 
     const reasons: string[] = [];
     if (r.total === minTotal) reasons.push("Lowest price");
-    if (r.breakdown.warrantyValueCents > 0) reasons.push(`${r.t.warrantyMonths}-month warranty`);
-    if (r.t.deliveryDays <= 2) reasons.push(`${r.t.deliveryDays}-day delivery`);
+    const words = vocabFor(getProduct(r.t.productId).category);
+    const warrantyText = words.warranty(r.t.warrantyMonths);
+    if (r.breakdown.warrantyValueCents > 0 && warrantyText) reasons.push(warrantyText);
+    if (r.t.deliveryDays <= 2) reasons.push(words.delivery(r.t.deliveryDays, false));
     if (r.extras > 0) reasons.push(`${formatMoney(r.extras)} of extras included`);
     if (!r.withinBudget) reasons.push(`Over budget by ${formatMoney(r.total - intent.budgetCents!)}`);
     if (!r.warrantyOk) reasons.push(`Warranty below ${intent.minWarrantyMonths} months`);
@@ -188,19 +191,20 @@ export function buildCounter(
 
 function counterMessage(c: BuyerCounter, offer: Offer): string {
   const merchant = MERCHANTS[offer.merchantId];
+  const v = offer.terms ? vocabFor(getProduct(offer.terms.productId).category) : VOCAB.goods;
   const parts: string[] = [];
   if (c.leverage) {
     const rival = MERCHANTS[c.leverage.merchantId].name;
     parts.push(
       c.leverage.sameProduct
-        ? `${rival} has the same model at ${formatMoney(c.leverage.totalCents)} delivered.`
-        : `${rival} is at ${formatMoney(c.leverage.totalCents)} delivered for a comparable spec.`,
+        ? `${rival} has the same ${v === VOCAB.goods ? "model" : "listing"} at ${formatMoney(c.leverage.totalCents)} ${v.totalSuffix}.`
+        : `${rival} is at ${formatMoney(c.leverage.totalCents)} ${v.totalSuffix} for a comparable ${v === VOCAB.goods ? "spec" : "option"}.`,
     );
   }
-  const asks: string[] = [`${formatMoney(c.targetUnitPriceCents)}`];
-  if (c.ask.freeShipping) asks.push("free shipping");
-  if (c.ask.warrantyMonths) asks.push(`${c.ask.warrantyMonths}-month warranty`);
-  if (c.ask.express) asks.push("express delivery");
+  const asks: string[] = [`${formatMoney(c.targetUnitPriceCents)}${v.priceSuffix}`];
+  if (c.ask.freeShipping) asks.push(v.freeFeesAsk);
+  if (c.ask.warrantyMonths && v.warranty(c.ask.warrantyMonths)) asks.push(v.warranty(c.ask.warrantyMonths)!);
+  if (c.ask.express) asks.push(v.fasterAsk);
   if (c.ask.bundle) asks.push("accessories in the box");
   const list = asks.length > 1 ? `${asks.slice(0, -1).join(", ")} and ${asks[asks.length - 1]}` : asks[0];
   parts.push(`${merchant.name}, can you do ${list}?`);
@@ -213,11 +217,12 @@ export function describeRanking(ranked: RankedOffer[], offers: Offer[]): string 
   const offer = offers.find((o) => o.id === best.offerId)!;
   const t = offer.terms!;
   const product = getProduct(t.productId);
-  const head = `I recommend ${MERCHANTS[best.merchantId].name}: ${product.name} for ${formatMoney(best.totalCents)} delivered`;
+  const v = vocabFor(product.category);
+  const head = `I recommend ${MERCHANTS[best.merchantId].name}: ${product.name} for ${formatMoney(best.totalCents)} ${v.totalSuffix}`;
   const extras = [
-    best.savingsCents > 0 ? `${formatMoney(best.savingsCents)} below list` : null,
-    `${t.warrantyMonths}-month warranty`,
-    `${t.deliveryDays}-day delivery`,
+    best.savingsCents > 0 ? `${formatMoney(best.savingsCents)} below ${v === VOCAB.goods ? "list" : "the asking price"}` : null,
+    v.warranty(t.warrantyMonths),
+    v.delivery(t.deliveryDays, t.express),
     t.bundle.length ? `plus ${t.bundle.map((b) => b.name.toLowerCase()).join(" and ")}` : null,
   ].filter(Boolean);
   const runner = ranked[1];
@@ -225,7 +230,8 @@ export function describeRanking(ranked: RankedOffer[], offers: Offer[]): string 
   if (runner) {
     const ro = offers.find((o) => o.id === runner.offerId)!;
     const diff = runner.totalCents - best.totalCents;
-    alt = ` ${MERCHANTS[runner.merchantId].name} is ${diff >= 0 ? `${formatMoney(diff)} more` : `${formatMoney(-diff)} less`} with ${ro.terms!.warrantyMonths}-month warranty${ro.terms!.bundle.length ? " and extras" : ""}.`;
+    const rw = v.warranty(ro.terms!.warrantyMonths) ?? v.delivery(ro.terms!.deliveryDays, ro.terms!.express);
+    alt = ` ${MERCHANTS[runner.merchantId].name} is ${diff >= 0 ? `${formatMoney(diff)} more` : `${formatMoney(-diff)} less`} with ${rw}${ro.terms!.bundle.length ? " and extras" : ""}.`;
   }
   const gate = best.withinBudget ? "" : " Note: no offer fits your budget, so this is the closest.";
   return `${head} (${extras.join(", ")}).${alt}${gate}`;

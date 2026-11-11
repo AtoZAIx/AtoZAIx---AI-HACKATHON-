@@ -4,6 +4,7 @@ import { newId, nowIso } from "../ids";
 import { requestHead, USE_LABEL } from "../intent";
 import { MERCHANTS, MERCHANT_IDS } from "../merchants";
 import { formatMoney } from "../money";
+import { vocabFor } from "../vocab";
 import type {
   AgentId,
   AgentMessage,
@@ -36,6 +37,7 @@ function msg(round: number, from: AgentId, to: AgentId | "all", kind: AgentMessa
 export function publicRequirements(intent: PurchaseIntent): string {
   const parts = [`${intent.quantity > 1 ? `${intent.quantity} × ` : ""}${requestHead(intent)}${intent.useCase ? ` for ${USE_LABEL[intent.useCase]}` : ""}`];
   if (intent.minRamGb) parts.push(`${intent.minRamGb}GB+ RAM`);
+  if (intent.minBedrooms) parts.push(`${intent.minBedrooms}+ bedrooms`);
   if (intent.minStorageGb) parts.push(intent.minStorageGb >= 1024 ? `${intent.minStorageGb / 1024}TB+ storage` : `${intent.minStorageGb}GB+ storage`);
   if (intent.needsDedicatedGpu) parts.push("dedicated GPU");
   if (intent.maxWeightKg) parts.push(`≤ ${intent.maxWeightKg}kg`);
@@ -79,7 +81,7 @@ export async function* negotiate(
       "coordinator",
       "all",
       "rfq",
-      `Request for quote: ${publicRequirements(intent)}.${anchor ? ` Buyer target ≈ ${formatMoney(anchor)} delivered.` : ""}${intent.askDiscountPct ? ` The shopper asks for ${Math.round(intent.askDiscountPct * 100)}% off list.` : ""} Offers are binding until they expire. Up to ${maxRounds} counter rounds; every store settles halfway between its opening and the buyer’s ask, within its own limits.`,
+      `Request for quote: ${publicRequirements(intent)}.${anchor ? ` Buyer target ≈ ${formatMoney(anchor)} ${vocabFor(intent.category).totalSuffix}.` : ""}${intent.askDiscountPct ? ` The shopper asks for ${Math.round(intent.askDiscountPct * 100)}% off list.` : ""} Offers are binding until they expire. Up to ${maxRounds} counter rounds; every store settles halfway between its opening and the buyer’s ask, within its own limits.`,
     ),
   };
   if (intent.budgetCents) {

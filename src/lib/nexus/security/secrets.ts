@@ -3,7 +3,7 @@ import { appendRecord } from "./ledger";
 
 /** Secrets that must never appear in anything sent to, or returned by, an AI model. */
 function secretValues(): string[] {
-  return ["PAYPAL_CLIENT_SECRET", "PAYPAL_CLIENT_ID", "PAYPAL_WEBHOOK_ID", "GEMINI_API_KEY", "NEXUS_SIGNING_SECRET", "NEXUS_SIM_WEBHOOK_SECRET", "NEXUS_MERCHANT_PASSCODE_ATELIER", "NEXUS_MERCHANT_PASSCODE_BOLT", "NEXUS_MERCHANT_PASSCODE_COVE"]
+  return ["PAYPAL_CLIENT_SECRET", "PAYPAL_CLIENT_ID", "PAYPAL_WEBHOOK_ID", "GEMINI_API_KEY", "NEXUS_SIGNING_SECRET", "NEXUS_SIM_WEBHOOK_SECRET", "NEXUS_MERCHANT_PASSCODE_ATELIER", "NEXUS_MERCHANT_PASSCODE_BOLT", "NEXUS_MERCHANT_PASSCODE_COVE", "SUPABASE_SECRET_KEY"]
     .map((k) => process.env[k])
     .filter((v): v is string => typeof v === "string" && v.length >= 8);
 }

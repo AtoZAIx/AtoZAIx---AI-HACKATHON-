@@ -80,7 +80,8 @@ export function minimumUnitPrice(merchant: MerchantProfile, listing: Listing, te
   const byFloor = listing.floorPriceCents + perUnitIncentives;
   const byProfit = listing.costCents + p.minProfitCents + perUnitIncentives;
   const byMargin = ceilDollar(listing.costCents / Math.max(0.01, 1 - p.minMarginPct)) + perUnitIncentives;
-  const byBudget = p.remaining ? listing.listPriceCents - Math.floor(Math.max(0, p.remaining.concessionCents) / terms.quantity / 100) * 100 : 0;
+  // Owner listings (property, rentals, cars) use the owner's limits, not the store's promo budget.
+  const byBudget = p.remaining && !listing.sellerListing ? listing.listPriceCents - Math.floor(Math.max(0, p.remaining.concessionCents) / terms.quantity / 100) * 100 : 0;
   return Math.max(byDiscount, byFloor, byProfit, byMargin, byBudget);
 }
 
@@ -133,7 +134,7 @@ export function mutualOpeningPrice(merchant: MerchantProfile, listing: Listing, 
 /** True when every incentive in `terms` fits the merchant's remaining campaign allocation. */
 export function incentivesAffordable(merchant: MerchantProfile, listing: Listing, terms: OfferTerms): boolean {
   const remaining = merchant.policy.remaining;
-  if (!remaining) return true;
+  if (!remaining || listing.sellerListing) return true;
   const cost = incentiveCostByLever(merchant, listing, terms);
   return INCENTIVE_LEVERS.every((l) => cost[l] <= Math.max(0, remaining.incentiveCents[l]));
 }

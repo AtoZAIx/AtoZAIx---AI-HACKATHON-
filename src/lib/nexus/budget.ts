@@ -32,6 +32,12 @@ export interface BudgetItem {
    * automatically. It never moves money from a bank account.
    */
   autoPay?: { day: number; lastMonth?: string | null } | null;
+  /**
+   * A monthly payment the user added (electricity, Netflix, a gym…). When it
+   * was taken out of a broader category, that category shrank by movedCents,
+   * which is given back if the payment is removed.
+   */
+  recurring?: { fromBillId: string | null; movedCents: number } | null;
 }
 
 export interface Goal {
@@ -201,6 +207,8 @@ export interface MoneyPlan {
   incomes?: IncomeSource[];
   /** Kept separate from goals: only this counts as the emergency fund. */
   emergency?: EmergencyFund | null;
+  /** Spending auto-detect: shops the user sorted themselves, shop key → category (bill) id. */
+  merchantRules?: Record<string, string>;
 }
 
 export const EMPTY_PLAN: MoneyPlan = { v: 1, salaryCents: 0, bills: [], goals: [], expenses: [] };
@@ -565,6 +573,10 @@ export function parsePlan(raw: unknown): MoneyPlan {
             : b?.autoPay === undefined
               ? undefined
               : null,
+        recurring:
+          b?.recurring && typeof b.recurring === "object"
+            ? { fromBillId: typeof b.recurring.fromBillId === "string" ? b.recurring.fromBillId.slice(0, 40) : null, movedCents: cents(b.recurring.movedCents) }
+            : undefined,
       }))
       .filter((b) => b.id),
     goals: (Array.isArray(r.goals) ? r.goals : [])
@@ -626,6 +638,15 @@ export function parsePlan(raw: unknown): MoneyPlan {
       }))
       .filter((e) => e.id && e.date),
     currency: (["INR", "USD", "EUR", "GBP"] as const).includes(r.currency as CurrencyCode) ? (r.currency as CurrencyCode) : undefined,
+    merchantRules:
+      r.merchantRules && typeof r.merchantRules === "object"
+        ? Object.fromEntries(
+            Object.entries(r.merchantRules as Record<string, unknown>)
+              .filter(([k, v]) => /^[a-z0-9]{2,24}$/.test(k) && typeof v === "string")
+              .slice(0, 300)
+              .map(([k, v]) => [k, (v as string).slice(0, 40)]),
+          )
+        : undefined,
     profile: r.profile && typeof r.profile === "object" ? parseProfile(r.profile) : undefined,
     incomes: Array.isArray(r.incomes)
       ? r.incomes

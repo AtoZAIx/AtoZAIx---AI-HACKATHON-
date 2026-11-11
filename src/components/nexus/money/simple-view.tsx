@@ -11,6 +11,7 @@ import { BuildPots, FamilyNotes, PRIORITY_COLOR, PriorityDonut, SavingsRate } fr
 import { CurrencyInput, useFmt } from "./currency";
 import type { UpdatePlan } from "./money-planner";
 import { newId } from "./use-money-plan";
+import { spentByKind } from "@/lib/nexus/spend-detect";
 
 const daysIn = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
 
@@ -173,7 +174,7 @@ export function Limits({ plan, spending, update, now }: { plan: MoneyPlan; spend
                     >
                       <div className={`h-1.5 rounded-full ${paid ? "bg-success" : BAR[status.level]}`} style={{ width: `${Math.min(100, status.pctUsed * 100)}%` }} />
                     </div>
-                    {item.kind === "want" && (
+                    {tracksDaily(item) && (
                       <TodayLine
                         name={item.name}
                         x={todayAllowance(status.limitCents, status.spentCents, todayMap.get(item.id) ?? 0, d.getDate(), daysIn(d))}
@@ -181,6 +182,7 @@ export function Limits({ plan, spending, update, now }: { plan: MoneyPlan; spend
                         onLog={() => logFor(item.id)}
                       />
                     )}
+                    <SpentOn plan={plan} billId={item.id} now={now} />
                     {(item.kind ?? "need") === "need" && (editing ? <AutoPayControl item={item} update={update} /> : item.autoPay && <AutoPayLine item={item} plan={plan} today={today} />)}
                     {!paid && status.level !== "fine" && status.level !== "half" && (
                       <p className={`text-xs ${status.level === "reminder" || status.level === "warning" ? "text-warning-ink" : "text-error-ink"}`} role="status">
@@ -241,6 +243,25 @@ export function Limits({ plan, spending, update, now }: { plan: MoneyPlan; spend
         </ul>
       )}
     </section>
+  );
+}
+
+/**
+ * Daily tracking for everything you spend from day to day: ENJOY categories
+ * and variable LIVE ones (groceries, bills, transport and phone, medicines).
+ * Fixed or auto-paid bills like rent and EMIs are paid once a month instead.
+ */
+export const tracksDaily = (b: BudgetItem) => b.kind === "want" || (!b.fixed && !b.autoPay && !b.recurring);
+
+/** What a category's money went on this month, by kind ("Transport ₹120 · Bills and recharge ₹1,800"). */
+function SpentOn({ plan, billId, now }: { plan: MoneyPlan; billId: string; now: string }) {
+  const formatMoney = useFmt();
+  const parts = spentByKind(plan, billId, now);
+  if (parts.length < 1 || (parts.length === 1 && parts[0].label === "Other")) return null;
+  return (
+    <p className="text-[11px] text-muted-foreground" data-testid={`spent-on-${plan.bills.find((b) => b.id === billId)?.name}`}>
+      Spent on: {parts.map((x) => `${x.label} ${formatMoney(x.cents)}`).join(" · ")}
+    </p>
   );
 }
 

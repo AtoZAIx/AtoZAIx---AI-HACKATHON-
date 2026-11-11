@@ -11,6 +11,7 @@ import { useNegotiation } from "@/hooks/use-negotiation";
 import { getProduct } from "@/lib/nexus/catalog";
 import { MERCHANT_DIRECTORY } from "@/lib/nexus/directory";
 import { formatMoney } from "@/lib/nexus/money";
+import { bookingToken, capitalize, termText, VOCAB, vocabFor } from "@/lib/nexus/vocab";
 import { offerFacts } from "@/lib/nexus/offer-view";
 import type { CommerceSession, NexusOrder, Product } from "@/lib/nexus/types";
 import { DealScore } from "./deal-score";
@@ -24,6 +25,15 @@ const SPEC_ROWS: Array<{ label: string; get: (p: Product) => string | null }> = 
   { label: "Camera", get: (p) => p.specs.camera ?? null },
   { label: "Battery", get: (p) => (p.specs.batteryHours ? `${p.specs.batteryHours}h` : null) },
   { label: "Weight", get: (p) => (p.specs.weightKg ? `${p.specs.weightKg}kg` : null) },
+  { label: "Location", get: (p) => p.specs.location ?? null },
+  { label: "Bedrooms", get: (p) => (p.specs.bedrooms ? `${p.specs.bedrooms} bed${p.specs.bathrooms ? ` · ${p.specs.bathrooms} bath` : ""}` : null) },
+  { label: "Size", get: (p) => (p.specs.acres ? `${p.specs.acres} acres` : p.specs.areaSqft ? `${p.specs.areaSqft.toLocaleString("en-US")} sq ft` : null) },
+  { label: "Zoning", get: (p) => p.specs.zoning ?? null },
+  { label: "Furnished", get: (p) => (p.specs.furnished === undefined ? null : p.specs.furnished ? "Yes" : "No") },
+  { label: "Model year", get: (p) => (p.specs.year ? String(p.specs.year) : null) },
+  { label: "Fuel", get: (p) => p.specs.fuel ?? null },
+  { label: "Seats", get: (p) => (p.specs.seats ? String(p.specs.seats) : null) },
+  { label: "Range", get: (p) => (p.specs.rangeMiles ? `${p.specs.rangeMiles} miles` : null) },
 ];
 
 /** Side-by-side comparison of every final offer, with verified vs unknown facts kept apart. */
@@ -37,6 +47,8 @@ export function DealComparison({ initial, initialOrder }: { initial: CommerceSes
     return { r, offer, product: getProduct(offer.terms!.productId), facts: offerFacts(session, offer) };
   });
   const products = cols.map((c) => c.product);
+  const v = vocabFor(products[0]?.category ?? "laptop");
+  const goods = v === VOCAB.goods;
   const specRows = SPEC_ROWS.filter((row) => products.some((p) => row.get(p)));
 
   return (
@@ -105,28 +117,51 @@ export function DealComparison({ initial, initialOrder }: { initial: CommerceSes
                 })}
               </Row>
             ))}
-            <Row label="Delivery estimate">
-              {cols.map(({ r, offer }, i) => (
+            <Row label={goods ? "Delivery estimate" : v.deliveryNoun}>
+              {cols.map(({ r, offer, product }, i) => {
+                const w = termText(product.category, offer.terms!);
+                return (
+                  <td key={r.offerId} className={cn("p-4", i === 0 && "bg-brand-soft/40")}>
+                    {goods ? (
+                      <>
+                        {offer.terms!.deliveryDays} day{offer.terms!.deliveryDays === 1 ? "" : "s"}
+                        {offer.terms!.express ? " express" : ""} · {offer.terms!.shippingCents ? `${formatMoney(offer.terms!.shippingCents)} shipping` : "free shipping"}
+                      </>
+                    ) : (
+                      `${capitalize(w.delivery)} · ${w.fees}`
+                    )}
+                  </td>
+                );
+              })}
+            </Row>
+            {cols.some(({ offer }) => offer.terms!.warrantyMonths > 0) && (
+              <Row label="Warranty">
+                {cols.map(({ r, offer, product }, i) => (
+                  <td key={r.offerId} className={cn("p-4", i === 0 && "bg-brand-soft/40")}>
+                    {goods ? `${offer.terms!.warrantyMonths} months` : capitalize(termText(product.category, offer.terms!).warranty ?? "None")}
+                  </td>
+                ))}
+              </Row>
+            )}
+            <Row label={v.returnsNoun}>
+              {cols.map(({ r, offer, product }, i) => (
                 <td key={r.offerId} className={cn("p-4", i === 0 && "bg-brand-soft/40")}>
-                  {offer.terms!.deliveryDays} day{offer.terms!.deliveryDays === 1 ? "" : "s"}
-                  {offer.terms!.express ? " express" : ""} · {offer.terms!.shippingCents ? `${formatMoney(offer.terms!.shippingCents)} shipping` : "free shipping"}
+                  {capitalize(termText(product.category, offer.terms!).returns)}
                 </td>
               ))}
             </Row>
-            <Row label="Warranty">
-              {cols.map(({ r, offer }, i) => (
-                <td key={r.offerId} className={cn("p-4", i === 0 && "bg-brand-soft/40")}>
-                  {offer.terms!.warrantyMonths} months
-                </td>
-              ))}
-            </Row>
-            <Row label="Return policy">
-              {cols.map(({ r, offer }, i) => (
-                <td key={r.offerId} className={cn("p-4", i === 0 && "bg-brand-soft/40")}>
-                  {offer.terms!.returnDays}-day returns
-                </td>
-              ))}
-            </Row>
+            {!goods && (
+              <Row label="Pay now with PayPal">
+                {cols.map(({ r, offer, product }, i) => {
+                  const token = bookingToken(product.category, offer.totalCents!);
+                  return (
+                    <td key={r.offerId} className={cn("p-4 text-xs", i === 0 && "bg-brand-soft/40")}>
+                      {token ? `${formatMoney(token.tokenCents)} refundable booking token` : "—"}
+                    </td>
+                  );
+                })}
+              </Row>
+            )}
             <Row label="Incentives">
               {cols.map(({ r, facts }, i) => (
                 <td key={r.offerId} className={cn("p-4 text-xs", i === 0 && "bg-brand-soft/40", !facts.incentives.length && "text-muted-foreground")}>

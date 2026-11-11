@@ -1,3 +1,5 @@
+import { getProduct } from "./catalog";
+import { capitalize, VOCAB, vocabFor } from "./vocab";
 import { bundleValue } from "./agents/pricing";
 import type { CommerceSession, MerchantId, Offer } from "./types";
 
@@ -8,8 +10,10 @@ export function offerFacts(session: CommerceSession, offer: Offer) {
   const listTotal = t.listPriceCents * t.quantity + t.listShippingCents;
   const total = offer.totalCents!;
   const incentives: string[] = [];
-  if (t.listShippingCents > t.shippingCents) incentives.push("Shipping waived");
-  if (t.express) incentives.push(`${t.deliveryDays}-day express`);
+  const v = vocabFor(getProduct(t.productId).category);
+  const goods = v === VOCAB.goods;
+  if (t.listShippingCents > t.shippingCents) incentives.push(goods ? "Shipping waived" : capitalize(v.fees(0)));
+  if (t.express) incentives.push(goods ? `${t.deliveryDays}-day express` : capitalize(v.delivery(t.deliveryDays, true)));
   if (t.warrantyMonths > first.warrantyMonths) incentives.push(`Warranty +${t.warrantyMonths - first.warrantyMonths} months`);
   for (const b of t.bundle) incentives.push(b.name);
   return {

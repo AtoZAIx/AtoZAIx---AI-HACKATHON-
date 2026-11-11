@@ -1,6 +1,7 @@
 import { fitScore, getProduct, meetsRequirements } from "../catalog";
 import { newId, nowIso } from "../ids";
 import { formatMoney } from "../money";
+import { dealKind, vocabFor } from "../vocab";
 import type {
   BuyerCounter,
   ConcessionLever,
@@ -366,6 +367,7 @@ export { leverCost };
 function openingMessage(state: MerchantState): string {
   const { merchant, product, terms } = state;
   const total = formatMoney(offerTotal(terms));
+  if (dealKind(product.category) !== "goods") return ownerOpening(state);
   switch (merchant.archetype) {
     case "premium":
       return `We'd recommend the ${product.name}. ${formatMoney(terms.unitPriceCents)} with our ${terms.warrantyMonths}-month warranty and complimentary ${terms.deliveryDays}-day delivery — ${total} all in.`;
@@ -386,6 +388,7 @@ function counterMessage(
 ): string {
   const { merchant, terms } = state;
   const total = formatMoney(offerTotal(terms));
+  if (dealKind(state.product.category) !== "goods") return ownerCounter(state, prev, moved, final, accepted);
   const bits: string[] = [];
   if (moved.includes("price")) bits.push(`${formatMoney(terms.unitPriceCents)} (down from ${formatMoney(prev.unitPriceCents)})`);
   if (moved.includes("warranty")) bits.push(`${terms.warrantyMonths}-month warranty`);
@@ -409,5 +412,46 @@ function counterMessage(
       return `${citing ? "Matched and beat it: " : final ? "Floor price, final: " : "Okay — "}${what}. ${total} delivered.`;
     case "retention":
       return `${final ? "Our final package: " : "Here's what we can do: "}${what}. ${total} delivered, and we'll look after you after the sale.`;
+  }
+}
+
+// ---------- Land, houses, rentals and cars: the store's agent speaks for the owner ----------
+
+function ownerOpening(state: MerchantState): string {
+  const { merchant, product, terms } = state;
+  const v = vocabFor(product.category);
+  const price = `${formatMoney(terms.unitPriceCents)}${v.priceSuffix}`;
+  const total = `${formatMoney(offerTotal(terms))} ${v.totalSuffix}`;
+  const extras = [v.fees(terms.shippingCents), v.delivery(terms.deliveryDays, terms.express), v.warranty(terms.warrantyMonths)].filter(Boolean).join(", ");
+  switch (merchant.archetype) {
+    case "premium":
+      return `On behalf of the owner: the ${product.name} at ${price}, ${extras}. ${total}.`;
+    case "competitive":
+      return `${product.name} is available at ${price}, ${extras}. ${total}. Bring me a better quote and I'll take it to the owner.`;
+    case "retention":
+      return `The owner would accept ${price} for the ${product.name}, ${extras}. ${total}, and we'll help you with the paperwork.`;
+  }
+}
+
+function ownerCounter(state: MerchantState, prev: OfferTerms, moved: ConcessionLever[], final: boolean, accepted: boolean): string {
+  const { merchant, product, terms } = state;
+  const v = vocabFor(product.category);
+  const price = `${formatMoney(terms.unitPriceCents)}${v.priceSuffix}`;
+  const total = `${formatMoney(offerTotal(terms))} ${v.totalSuffix}`;
+  const bits: string[] = [];
+  if (moved.includes("price")) bits.push(`${price} (down from ${formatMoney(prev.unitPriceCents)}${v.priceSuffix})`);
+  if (moved.includes("warranty") && v.warranty(terms.warrantyMonths)) bits.push(v.warranty(terms.warrantyMonths)!);
+  if (moved.includes("express")) bits.push(v.delivery(terms.deliveryDays, true));
+  if (moved.includes("shipping")) bits.push(v.fees(0));
+  if (moved.includes("bundle")) bits.push(`${terms.bundle[terms.bundle.length - 1].name.toLowerCase()} included`);
+  const what = bits.length ? bits.join(", ") : `${price}, unchanged`;
+  if (accepted) return `The owner accepts ${price}. ${total}${merchant.archetype === "competitive" ? ". Locked." : "."}`;
+  switch (merchant.archetype) {
+    case "premium":
+      return `${final ? "The owner's best and final: " : "The owner can offer "}${what}. ${total}.`;
+    case "competitive":
+      return `${final ? "Lowest the owner will go: " : "Okay, "}${what}. ${total}.`;
+    case "retention":
+      return `${final ? "The owner's final offer: " : "Here's what the owner can do: "}${what}. ${total}, and we'll stay with you until the keys are handed over.`;
   }
 }

@@ -8,7 +8,10 @@
 export type Cents = number;
 export type Currency = "USD";
 
-export type Category = "laptop" | "monitor" | "headphones" | "tablet" | "phone";
+export type Category = "laptop" | "monitor" | "headphones" | "tablet" | "phone" | "land" | "house" | "rental" | "car";
+
+/** Big-ticket and rental deals: PayPal takes a refundable booking token, the rest is settled with the seller. */
+export const BOOKING_CATEGORIES: Category[] = ["land", "house", "rental", "car"];
 
 export type UseCase =
   | "video-editing"
@@ -39,6 +42,8 @@ export interface PurchaseIntent {
   askDiscountPct?: number | null;
   useCase: UseCase | null;
   minRamGb: number | null;
+  /** Homes and rentals: at least this many bedrooms. */
+  minBedrooms?: number | null;
   minStorageGb: number | null;
   maxWeightKg: number | null;
   needsDedicatedGpu: boolean;
@@ -69,6 +74,19 @@ export interface ProductSpecs {
   refreshHz?: number;
   noiseCancelling?: boolean;
   camera?: string;
+  // Property and rentals
+  location?: string;
+  areaSqft?: number;
+  acres?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  furnished?: boolean;
+  zoning?: string;
+  // Cars
+  year?: number;
+  fuel?: string;
+  seats?: number;
+  rangeMiles?: number;
 }
 
 export interface Product {
@@ -124,6 +142,11 @@ export interface Listing {
   maxDiscountPct?: number | null;
   /** Private, optional per-item override of the store's opening discount. */
   openingDiscountPct?: number | null;
+  /**
+   * The store's agent sells this on behalf of an owner (property, rentals,
+   * cars): the owner's own price limits apply, not the store's promo budget.
+   */
+  sellerListing?: boolean;
 }
 
 export type ConcessionLever = "price" | "warranty" | "express" | "shipping" | "bundle";
@@ -547,7 +570,21 @@ export interface NexusOrder {
   listSubtotalCents: Cents;
   savingsCents: Cents;
   shippingCents: Cents;
+  /** What PayPal charges now. For a booking (property, rental, car) this is the refundable token. */
   totalCents: Cents;
+  /**
+   * Set for property, rental and car deals: PayPal takes only a refundable
+   * booking token; the agreed price is settled with the seller at closing.
+   */
+  booking?: {
+    /** The full negotiated price (incl. fees) agreed with the seller. */
+    dealTotalCents: Cents;
+    /** Paid to the seller later, outside this app. */
+    balanceDueCents: Cents;
+    /** How the token was worked out, in plain words. */
+    rule: string;
+    refundable: true;
+  } | null;
   terms: OfferTerms;
   termsHash: string;
   signature: string;

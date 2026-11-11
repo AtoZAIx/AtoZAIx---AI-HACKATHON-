@@ -13,6 +13,7 @@ import { CurrencyProvider } from "./currency";
 import { GoalsPanel } from "./goals-panel";
 import { CoachChat, EmergencyCard, GoalPriorities, LifeChanges } from "./household-panels";
 import { MoneyHealth } from "./money-health";
+import { PaymentsPanel } from "./payments-panel";
 import { QuickSetup } from "./quick-setup";
 import { BuildSummary, GoalsThisMonth, Limits, Overview } from "./simple-view";
 import { useMoneyPlan } from "./use-money-plan";
@@ -69,6 +70,7 @@ export function MoneyPlanner({ purchases, products }: { purchases: Purchase[]; p
         {hasPay && !hasEssentials && <FinishPlan onAdd={() => setOnboarding(2)} />}
         {hasPay && <Overview plan={plan} month={month} spending={spending} now={now} onEdit={() => setOnboarding(0)} />}
         {hasPay && <Limits plan={plan} spending={spending} update={update} now={now} />}
+        {hasPay && <PaymentsPanel plan={plan} purchases={purchases} update={update} now={now} today={localDay()} />}
         {hasPay && <AutoPayments plan={plan} month={month} update={update} today={localDay()} />}
         <GoalsPanel plan={plan} month={month} update={update} products={products} goalPurchases={spending.goalPurchases} now={now} hasPay={hasPay} summary={hasPay && <GoalsThisMonth month={month} now={now} plan={plan} />}>
           {hasPay && <BuildSummary plan={plan} month={month} now={now} />}

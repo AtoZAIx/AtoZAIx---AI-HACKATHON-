@@ -278,7 +278,7 @@ async function startFromIntent(
     ? ` I’ll ask for ${Math.round(i.askDiscountPct * 100)}% off. Each store meets you halfway between its opening price and your ask, within its own limits.`
     : "";
   return reply(
-    `${refining ? "Updated" : "Got it"}! Looking for: ${i.summary}.${budgetNote} Asking Maison Aurum, Vantage Electronics and Cove Commerce for their best price now.${askNote}`,
+    `${refining ? "Updated" : "Got it"}! Looking for: ${i.summary}.${budgetNote} Asking Maison Aurum, Vantage Market and Cove Commerce for their best price now.${askNote}`,
     { type: "negotiate" },
   );
 }
@@ -446,7 +446,8 @@ export async function lockDealAndPrepareOrder(sessionId: string, offerId: string
 
   const order = prepareOrder(agreement, listing!);
   await store.saveOrder(order);
-  await store.appendLedger({
+  // Owner listings (property, rentals, cars) don't draw on the store's promo budget.
+  if (!listing!.sellerListing) await store.appendLedger({
     id: newId("led"),
     merchantId: offer.merchantId,
     at: nowIso(),

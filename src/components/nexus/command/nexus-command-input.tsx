@@ -15,12 +15,16 @@ import { ProductPicker } from "./product-picker";
 
 const SUGGESTIONS = [
   { label: "Find the best laptop under $900.", text: "Find the best laptop under $900" },
+  { label: "Buy a 3-bedroom house under $450,000.", text: "Buy a 3-bedroom house under $450,000" },
+  { label: "Rent a 2-bedroom home under $2,200 a month.", text: "Rent a 2-bedroom apartment under $2,200 a month" },
+  { label: "Land plot under $200,000.", text: "Land plot under $200,000" },
+  { label: "Toyota Camry under $30,000.", text: "Toyota Camry under $30,000" },
+  { label: "Ask for 10% off a MacBook Air.", text: "MacBook Air 13 M4, 10% off" },
   { label: "Compare wireless headphones.", text: "Compare wireless headphones" },
   { label: "Find a smartphone with the best warranty.", text: "Find a smartphone with the best warranty" },
   { label: "Negotiate a better price for a product.", text: null },
   { label: "MacBook Air for school under $1,100.", text: "MacBook Air for school under $1,100" },
   { label: "Best price on iPhone 17 Pro.", text: "Best price on iPhone 17 Pro" },
-  { label: "Ask for 10% off a MacBook Air.", text: "MacBook Air 13 M4, 10% off" },
 ];
 
 type ChatResponse = { session: CommerceSession; action: { type: string } };
@@ -173,13 +177,14 @@ export function NexusCommandInput({ defaultLimit }: { defaultLimit?: number | nu
       </form>
       <div className="flex flex-wrap items-center justify-center gap-2" aria-label="Suggested requests">
         <span className="text-xs text-muted-foreground">Try:</span>
-        {SUGGESTIONS.map((s) => (
+        {SUGGESTIONS.map((s, i) => (
           <button
             key={s.label}
             type="button"
+            data-testid="try-suggestion"
             disabled={busy}
             onClick={() => (s.text ? void start(s.text) : setPicker(true))}
-            className="h-8 rounded-full border bg-card px-3.5 text-[13px] text-muted-foreground shadow-card transition hover:border-foreground/20 hover:text-foreground disabled:opacity-50"
+            className={cn("h-8 rounded-full border bg-card px-3.5 text-[13px] text-muted-foreground shadow-card transition hover:border-foreground/20 hover:text-foreground disabled:opacity-50", i >= 6 && "hidden sm:inline-block")}
           >
             {s.label}
           </button>

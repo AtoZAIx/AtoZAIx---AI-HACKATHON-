@@ -7,6 +7,8 @@ import { Page } from "@/components/nexus/common/page-header";
 import { OrderWorkspace } from "@/components/nexus/order/order-workspace";
 import { paymentConfig } from "@/lib/nexus/service";
 import { store } from "@/lib/nexus/store";
+import { getProduct } from "@/lib/nexus/catalog";
+import type { Purchase } from "@/lib/nexus/budget";
 
 export const metadata: Metadata = { title: "Order" };
 
@@ -25,5 +27,9 @@ async function OrderLoader({ params }: Pick<PageProps<"/orders/[id]">, "params">
   const { id } = await params;
   const order = await store.getOrder(id);
   if (!order) notFound();
-  return <OrderWorkspace key={order.id} initial={order} payments={paymentConfig()} />;
+  // Other purchases already paid (for Spend Guard's monthly ENJOY check).
+  const purchases: Purchase[] = (await store.listOrders(500))
+    .filter((o) => o.id !== order.id && o.status === "confirmed" && o.payment?.capturedAt)
+    .map((o) => ({ orderId: o.id, productId: o.terms.productId, productName: getProduct(o.terms.productId).name, totalCents: o.payment!.capturedAmountCents ?? o.totalCents, paidAt: o.payment!.capturedAt! }));
+  return <OrderWorkspace key={order.id} initial={order} payments={paymentConfig()} purchases={purchases} />;
 }

@@ -14,7 +14,18 @@ export async function POST(req: Request, ctx: RouteContext<"/api/orders/[id]/pay
       input = {};
     }
     return idempotent(`pay:${id}`, req.headers.get("idempotency-key"), raw, () =>
-      startPayment(id, new URL(req.url).origin, { confirmRisk: input?.confirmRisk === true, deviceId: deviceFrom(req) }),
+      startPayment(id, publicOrigin(req), { confirmRisk: input?.confirmRisk === true, deviceId: deviceFrom(req) }),
     );
   });
+}
+
+/**
+ * The public address PayPal sends the buyer back to. Behind a hosting proxy
+ * (Render), the request can look like http:// or an internal host, so the
+ * configured public URL wins: APP_URL, then Render's RENDER_EXTERNAL_URL.
+ */
+function publicOrigin(req: Request): string {
+  const configured = process.env.APP_URL || process.env.RENDER_EXTERNAL_URL;
+  if (configured && /^https?:\/\/[^/\s]+$/.test(configured.replace(/\/+$/, ""))) return configured.replace(/\/+$/, "");
+  return new URL(req.url).origin;
 }

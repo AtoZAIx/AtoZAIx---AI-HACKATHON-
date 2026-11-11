@@ -2,7 +2,7 @@
 
 import { ArrowRightIcon, Loader2Icon, LockIcon, TimerIcon } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { AgentAvatar } from "@/components/nexus/agent-avatar";
 import { SimulatedBadge } from "@/components/nexus/common/simulated-badge";
 import { ProductTile } from "@/components/nexus/product-tile";
@@ -10,16 +10,26 @@ import { Button } from "@/components/ui/button";
 import { getProduct, specLine } from "@/lib/nexus/catalog";
 import { MERCHANT_DIRECTORY } from "@/lib/nexus/directory";
 import { formatMoney } from "@/lib/nexus/money";
+import type { Purchase } from "@/lib/nexus/budget";
 import type { NexusOrder } from "@/lib/nexus/types";
+import { SpendGuard } from "./spend-guard";
+import { capitalize, dealKind, termText } from "@/lib/nexus/vocab";
 
 /** High-trust approval: the customer approves these exact terms, this version, this amount. */
-export function PurchaseApproval({ order, expiresInMs, busy, onApprove }: { order: NexusOrder; expiresInMs: number; busy: boolean; onApprove: () => void }) {
+export function PurchaseApproval({ order, expiresInMs, busy, onApprove, purchases = [] }: { order: NexusOrder; expiresInMs: number; busy: boolean; onApprove: () => void; purchases?: Purchase[] }) {
   const [consent, setConsent] = useState(false);
+  // Spend Guard: approval stays locked while the purchase is over the customer's plan, until they choose to go over.
+  const [guardBlocks, setGuardBlocks] = useState(false);
+  const [override, setOverride] = useState(false);
+  const onBlockingChange = useCallback((b: boolean) => setGuardBlocks(b), []);
   const t = order.terms;
   const product = getProduct(t.productId);
   const merchant = MERCHANT_DIRECTORY[order.merchantId];
   const incentives = order.lineItems.filter((l) => l.kind !== "product").map((l) => l.name.replace(" (included)", ""));
   const expired = expiresInMs <= 0;
+  const words = termText(product.category, t);
+  const booking = order.booking ?? null;
+  const kind = dealKind(product.category);
 
   return (
     <section className="mx-auto max-w-3xl space-y-6" aria-labelledby="approve-title">
@@ -28,7 +38,11 @@ export function PurchaseApproval({ order, expiresInMs, busy, onApprove }: { orde
         <h1 id="approve-title" className="text-2xl font-semibold tracking-tight sm:text-3xl">
           Approve the exact terms
         </h1>
-        <p className="text-sm text-muted-foreground">Check everything below. When you approve, you’ll pay with PayPal. Nothing is charged before that.</p>
+        <p className="text-sm text-muted-foreground">
+          {booking
+            ? "Check everything below. When you approve, you’ll pay only a refundable booking token with PayPal. Nothing is charged before that."
+            : "Check everything below. When you approve, you’ll pay with PayPal. Nothing is charged before that."}
+        </p>
       </div>
 
       <div className="surface overflow-hidden">
@@ -42,24 +56,44 @@ export function PurchaseApproval({ order, expiresInMs, busy, onApprove }: { orde
             </p>
           </div>
         </div>
-        <dl className="grid grid-cols-1 divide-y border-t sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-          <div className="divide-y">
+        <div className="grid grid-cols-1 divide-y border-t sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+          <dl className="divide-y">
             <Term label="Negotiated price" value={`${formatMoney(t.unitPriceCents)}${t.quantity > 1 ? ` × ${t.quantity}` : ""}`} />
             <Term label="Currency" value={order.currency} />
-            <Term label="Delivery terms" value={`${t.deliveryDays} day${t.deliveryDays === 1 ? "" : "s"}${t.express ? " express" : ""} · ${t.shippingCents ? `${formatMoney(t.shippingCents)} shipping` : "free shipping"}`} />
-            <Term label="Warranty" value={`${t.warrantyMonths} months`} />
-          </div>
-          <div className="divide-y">
-            <Term label="Return policy" value={`${t.returnDays}-day returns`} />
+            {booking ? (
+              <>
+                <Term label={kind === "rental" ? "Agreed rent" : "Agreed price"} value={`${formatMoney(t.unitPriceCents)}${words.v.priceSuffix}`} />
+                <Term label={words.v.deliveryNoun} value={capitalize(words.delivery)} />
+                <Term label={words.v.feesNoun} value={capitalize(words.fees)} />
+                {words.warranty && <Term label="Warranty" value={capitalize(words.warranty)} />}
+              </>
+            ) : (
+              <>
+                <Term label="Delivery terms" value={`${t.deliveryDays} day${t.deliveryDays === 1 ? "" : "s"}${t.express ? " express" : ""} · ${t.shippingCents ? `${formatMoney(t.shippingCents)} shipping` : "free shipping"}`} />
+                <Term label="Warranty" value={`${t.warrantyMonths} months`} />
+              </>
+            )}
+          </dl>
+          <dl className="divide-y">
+            <Term label={booking ? words.v.returnsNoun : "Return policy"} value={booking ? capitalize(words.returns) : `${t.returnDays}-day returns`} />
             <Term label="Included incentives" value={incentives.length ? incentives.join(", ") : "None"} />
             <Term label="Deal version" value={`Version ${order.agreementVersion}`} />
             <Term label="Offer valid for" value={expired ? "Expired" : `${Math.floor(expiresInMs / 60000)}m ${Math.floor((expiresInMs % 60000) / 1000)}s`} warn={expired || expiresInMs < 120000} />
-          </div>
-        </dl>
+          </dl>
+        </div>
+        {booking && (
+          <dl className="divide-y border-t" data-testid="booking-summary">
+            <Term label={kind === "rental" ? "First month, incl. fees" : `Agreed total, ${words.v.totalSuffix}`} value={formatMoney(booking.dealTotalCents)} />
+            <Term label="Booking token (refundable)" value={formatMoney(order.totalCents)} />
+            <Term label={kind === "rental" ? "Paid to the landlord at move-in" : "Paid to the seller at closing"} value={formatMoney(booking.balanceDueCents)} />
+          </dl>
+        )}
         <div className="flex items-end justify-between gap-4 border-t bg-secondary/50 px-5 py-4">
           <div>
-            <p className="text-sm font-medium">Total payable</p>
-            {order.savingsCents > 0 && <p className="tabular text-xs text-success-ink">{formatMoney(order.savingsCents)} below the merchant’s list price</p>}
+            <p className="text-sm font-medium">{booking ? "Pay now with PayPal" : "Total payable"}</p>
+            {booking && <p className="text-xs text-muted-foreground">Token: {booking.rule}</p>}
+            {order.savingsCents > 0 && booking && <p className="tabular text-xs text-success-ink">Your agent negotiated {formatMoney(order.savingsCents)} off the asking price</p>}
+            {order.savingsCents > 0 && !booking && <p className="tabular text-xs text-success-ink">{formatMoney(order.savingsCents)} below the merchant’s list price</p>}
           </div>
           <p className="tabular text-3xl font-semibold" data-testid="order-total">
             {formatMoney(order.totalCents)} <span className="text-base font-medium text-muted-foreground">{order.currency}</span>
@@ -68,6 +102,18 @@ export function PurchaseApproval({ order, expiresInMs, busy, onApprove }: { orde
       </div>
 
       <div className="surface space-y-4 p-5">
+        <SpendGuard
+          item={{
+            productId: t.productId,
+            productName: product.name,
+            totalCents: order.totalCents,
+            ...(booking && kind !== "goods" ? { booking: { kind, dealTotalCents: booking.dealTotalCents, monthlyCents: t.unitPriceCents } } : {}),
+          }}
+          purchases={purchases}
+          override={override}
+          onOverride={setOverride}
+          onBlockingChange={onBlockingChange}
+        />
         <div className="flex items-start gap-3 text-sm">
           <input
             id="approval-consent"
@@ -79,8 +125,17 @@ export function PurchaseApproval({ order, expiresInMs, busy, onApprove }: { orde
             data-testid="consent"
           />
           <label htmlFor="approval-consent" id="approval-consent-text">
-            I approve paying <strong className="tabular">{formatMoney(order.totalCents)} {order.currency}</strong> to <strong>{merchant.name}</strong> for this deal exactly as shown. If
-            anything changes, I’ll be asked to approve again.
+            {booking ? (
+              <>
+                I approve paying a refundable booking token of <strong className="tabular">{formatMoney(order.totalCents)} {order.currency}</strong> to <strong>{merchant.name}</strong> to hold
+                this deal exactly as shown. The remaining {formatMoney(booking.balanceDueCents)} is not charged here. If anything changes, I’ll be asked to approve again.
+              </>
+            ) : (
+              <>
+                I approve paying <strong className="tabular">{formatMoney(order.totalCents)} {order.currency}</strong> to <strong>{merchant.name}</strong> for this deal exactly as shown. If
+                anything changes, I’ll be asked to approve again.
+              </>
+            )}
           </label>
         </div>
         {expired && (
@@ -92,8 +147,8 @@ export function PurchaseApproval({ order, expiresInMs, busy, onApprove }: { orde
           <Button asChild variant="outline" size="lg">
             <Link href={`/deals/${order.sessionId}`}>Review Deal</Link>
           </Button>
-          <Button size="lg" disabled={!consent || expired || busy} onClick={onApprove} data-testid="approve-order">
-            {busy ? <Loader2Icon className="animate-spin" /> : <LockIcon />} Approve & Continue to PayPal <ArrowRightIcon />
+          <Button size="lg" disabled={!consent || expired || busy || guardBlocks} onClick={onApprove} data-testid="approve-order">
+            {busy ? <Loader2Icon className="animate-spin" /> : <LockIcon />} {booking ? "Approve & Pay Token with PayPal" : "Approve & Continue to PayPal"} <ArrowRightIcon />
           </Button>
         </div>
       </div>

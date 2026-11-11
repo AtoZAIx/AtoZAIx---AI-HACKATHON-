@@ -62,7 +62,7 @@ function state() {
 // ---------------------------------------------------------------- redaction
 
 function secretValues(): string[] {
-  return ["PAYPAL_CLIENT_SECRET", "PAYPAL_CLIENT_ID", "GEMINI_API_KEY", "NEXUS_SIGNING_SECRET", "NEXUS_SIM_WEBHOOK_SECRET", "SUPABASE_SECRET_KEY"]
+  return ["PAYPAL_CLIENT_SECRET", "PAYPAL_CLIENT_ID", "GEMINI_API_KEY", "NEXUS_SIGNING_SECRET", "NEXUS_SIM_WEBHOOK_SECRET", "SUPABASE_SECRET_KEY", "NEXUS_MERCHANT_PASSCODE_ATELIER", "NEXUS_MERCHANT_PASSCODE_BOLT", "NEXUS_MERCHANT_PASSCODE_COVE"]
     .map((k) => process.env[k])
     .filter((v): v is string => typeof v === "string" && v.length >= 8);
 }

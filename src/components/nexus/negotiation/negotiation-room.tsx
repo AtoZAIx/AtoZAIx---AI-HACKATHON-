@@ -117,7 +117,7 @@ export function NegotiationRoom({ initial, initialOrder, autostart }: { initial:
               </div>
               <Button asChild size="lg" data-testid="review-order">
                 <Link href={`/orders/${n.order.id}`}>
-                  Review & pay {formatMoney(n.order.totalCents)} <ArrowRightIcon />
+                  Review & pay {formatMoney(n.order.totalCents)}{n.order.booking ? " token" : ""} <ArrowRightIcon />
                 </Link>
               </Button>
             </section>
@@ -218,7 +218,7 @@ export function NegotiationRoom({ initial, initialOrder, autostart }: { initial:
           {locked && n.order ? (
             <Button asChild className="w-full" size="lg">
               <Link href={`/orders/${n.order.id}`}>
-                Review & pay · {formatMoney(n.order.totalCents)} <ArrowRightIcon />
+                Review & pay · {formatMoney(n.order.totalCents)}{n.order.booking ? " token" : ""} <ArrowRightIcon />
               </Link>
             </Button>
           ) : best ? (

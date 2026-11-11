@@ -17,6 +17,7 @@ import type { NexusOrder } from "@/lib/nexus/types";
 import { OrderTimeline } from "./order-timeline";
 import { PayPalCheckout, type PaymentsConfig } from "./paypal-checkout";
 import { PurchaseApproval } from "./purchase-approval";
+import type { Purchase } from "@/lib/nexus/budget";
 import { LocalTime } from "@/components/nexus/common/local-time";
 
 export type { PaymentsConfig };
@@ -31,7 +32,7 @@ function useNow() {
 }
 
 /** Approval → PayPal → confirmation, driven entirely by backend order state. */
-export function OrderWorkspace({ initial, payments }: { initial: NexusOrder; payments: PaymentsConfig }) {
+export function OrderWorkspace({ initial, payments, purchases = [] }: { initial: NexusOrder; payments: PaymentsConfig; purchases?: Purchase[] }) {
   const [order, setOrder] = useState(initial);
   const [busy, setBusy] = useState(false);
   const now = useNow();
@@ -87,7 +88,7 @@ export function OrderWorkspace({ initial, payments }: { initial: NexusOrder; pay
     return (
       <div className="space-y-6">
         {header}
-        <PurchaseApproval order={order} expiresInMs={new Date(order.terms.expiresAt).getTime() - now} busy={busy} onApprove={approve} />
+        <PurchaseApproval order={order} expiresInMs={new Date(order.terms.expiresAt).getTime() - now} busy={busy} onApprove={approve} purchases={purchases} />
       </div>
     );
   }
@@ -165,7 +166,7 @@ export function OrderWorkspace({ initial, payments }: { initial: NexusOrder; pay
               <ProductTile product={product} className="size-14 shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{product.name}</p>
-                <p className="text-xs text-muted-foreground">from {merchant.name}</p>
+                <p className="text-xs text-muted-foreground">{order.booking ? "listed by" : "from"} {merchant.name}</p>
               </div>
               <p className="tabular text-xl font-semibold">{formatMoney(order.totalCents)}</p>
             </div>
@@ -181,12 +182,19 @@ export function OrderWorkspace({ initial, payments }: { initial: NexusOrder; pay
                     <td className="tabular py-2 text-right">{l.unitPriceCents ? formatMoney(l.unitPriceCents * l.quantity) : "Included"}</td>
                   </tr>
                 ))}
-                <tr>
-                  <td className="py-2 text-muted-foreground">Shipping</td>
-                  <td className="tabular py-2 text-right">{order.shippingCents ? formatMoney(order.shippingCents) : "Free"}</td>
-                </tr>
+                {order.booking ? (
+                  <tr>
+                    <td className="py-2 text-muted-foreground">Agreed price {formatMoney(order.booking.dealTotalCents)}; settled with the seller later, not through this app</td>
+                    <td className="tabular py-2 text-right text-muted-foreground">{formatMoney(order.booking.balanceDueCents)}</td>
+                  </tr>
+                ) : (
+                  <tr>
+                    <td className="py-2 text-muted-foreground">Shipping</td>
+                    <td className="tabular py-2 text-right">{order.shippingCents ? formatMoney(order.shippingCents) : "Free"}</td>
+                  </tr>
+                )}
                 <tr className="font-semibold">
-                  <td className="py-3">Total</td>
+                  <td className="py-3">{order.booking ? "Paid with PayPal (refundable token)" : "Total"}</td>
                   <td className="tabular py-3 text-right" data-testid="order-total">
                     {formatMoney(order.totalCents)} {order.currency}
                   </td>

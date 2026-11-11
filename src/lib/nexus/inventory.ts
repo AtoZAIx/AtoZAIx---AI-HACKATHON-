@@ -39,6 +39,88 @@ const MERCHANT_TERMS: Record<MerchantId, MerchantTerms> = {
   cove: { costPct: 0.8, baseWarrantyMonths: 12, maxWarrantyMonths: 36, warrantyCostPct: 0.02, standardDeliveryDays: 3, expressDeliveryDays: 2, expressCostCents: dollars(20), shippingCents: 0 },
 };
 
+/**
+ * Land, houses, rentals and cars are sold on behalf of owners: possession /
+ * move-in time instead of delivery, closing / broker / destination fees
+ * instead of shipping, no warranty except on cars, and the owner's own
+ * discount limits (realistic: a few percent, not electronics-style).
+ */
+type SellerCategory = "land" | "house" | "rental" | "car";
+interface SellerTerms extends Omit<MerchantTerms, "costPct"> {
+  /** List price as a fraction of the asking price. */
+  list: number;
+  /** Owner's deepest discount and the store agent's opening discount. */
+  maxDiscount: number;
+  opening: number;
+}
+
+const SELLER_TERMS: Record<SellerCategory, Record<MerchantId, SellerTerms>> = {
+  house: {
+    atelier: { list: 1.0, maxDiscount: 0.04, opening: 0.01, baseWarrantyMonths: 0, maxWarrantyMonths: 0, warrantyCostPct: 0, standardDeliveryDays: 30, expressDeliveryDays: 21, expressCostCents: dollars(1_500), shippingCents: 0 },
+    bolt: { list: 0.98, maxDiscount: 0.07, opening: 0.02, baseWarrantyMonths: 0, maxWarrantyMonths: 0, warrantyCostPct: 0, standardDeliveryDays: 45, expressDeliveryDays: 30, expressCostCents: dollars(1_200), shippingCents: dollars(3_500) },
+    cove: { list: 0.99, maxDiscount: 0.05, opening: 0.015, baseWarrantyMonths: 0, maxWarrantyMonths: 0, warrantyCostPct: 0, standardDeliveryDays: 30, expressDeliveryDays: 21, expressCostCents: dollars(1_000), shippingCents: dollars(2_000) },
+  },
+  land: {
+    atelier: { list: 1.0, maxDiscount: 0.06, opening: 0.015, baseWarrantyMonths: 0, maxWarrantyMonths: 0, warrantyCostPct: 0, standardDeliveryDays: 21, expressDeliveryDays: 10, expressCostCents: dollars(800), shippingCents: dollars(900) },
+    bolt: { list: 0.97, maxDiscount: 0.1, opening: 0.03, baseWarrantyMonths: 0, maxWarrantyMonths: 0, warrantyCostPct: 0, standardDeliveryDays: 30, expressDeliveryDays: 14, expressCostCents: dollars(600), shippingCents: dollars(1_500) },
+    cove: { list: 0.99, maxDiscount: 0.08, opening: 0.02, baseWarrantyMonths: 0, maxWarrantyMonths: 0, warrantyCostPct: 0, standardDeliveryDays: 21, expressDeliveryDays: 14, expressCostCents: dollars(500), shippingCents: dollars(1_000) },
+  },
+  rental: {
+    atelier: { list: 1.0, maxDiscount: 0.04, opening: 0.01, baseWarrantyMonths: 0, maxWarrantyMonths: 0, warrantyCostPct: 0, standardDeliveryDays: 7, expressDeliveryDays: 3, expressCostCents: dollars(100), shippingCents: 0 },
+    bolt: { list: 0.97, maxDiscount: 0.08, opening: 0.02, baseWarrantyMonths: 0, maxWarrantyMonths: 0, warrantyCostPct: 0, standardDeliveryDays: 14, expressDeliveryDays: 5, expressCostCents: dollars(150), shippingCents: dollars(500) },
+    cove: { list: 0.99, maxDiscount: 0.06, opening: 0.015, baseWarrantyMonths: 0, maxWarrantyMonths: 0, warrantyCostPct: 0, standardDeliveryDays: 10, expressDeliveryDays: 4, expressCostCents: dollars(120), shippingCents: dollars(250) },
+  },
+  car: {
+    atelier: { list: 1.0, maxDiscount: 0.04, opening: 0.01, baseWarrantyMonths: 48, maxWarrantyMonths: 72, warrantyCostPct: 0.012, standardDeliveryDays: 10, expressDeliveryDays: 5, expressCostCents: dollars(300), shippingCents: 0 },
+    bolt: { list: 0.97, maxDiscount: 0.08, opening: 0.02, baseWarrantyMonths: 36, maxWarrantyMonths: 48, warrantyCostPct: 0.015, standardDeliveryDays: 14, expressDeliveryDays: 7, expressCostCents: dollars(250), shippingCents: dollars(1_195) },
+    cove: { list: 0.99, maxDiscount: 0.06, opening: 0.015, baseWarrantyMonths: 36, maxWarrantyMonths: 60, warrantyCostPct: 0.01, standardDeliveryDays: 10, expressDeliveryDays: 6, expressCostCents: dollars(200), shippingCents: dollars(995) },
+  },
+};
+
+/** Every store's agent can represent the owners of these listings (3 similar units each). */
+const SELLER_LISTINGS = [
+  "land-cedar-grove-plot",
+  "land-lakeside-plot",
+  "land-hill-country-parcel",
+  "house-maple-street",
+  "house-east-townhouse",
+  "house-cedar-park-garden",
+  "rental-downtown-1bed",
+  "rental-campus-2bed",
+  "rental-pflugerville-house",
+  "toyota-camry-2026",
+  "honda-crv-hybrid-2026",
+  "hyundai-ioniq-5-2026",
+];
+
+function buildSellerListing(merchantId: MerchantId, productId: string): Listing {
+  const product = getProduct(productId);
+  const t = SELLER_TERMS[product.category as SellerCategory][merchantId];
+  const listPriceCents = charm(product.msrpCents * t.list);
+  const floorPriceCents = Math.round((listPriceCents * (1 - t.maxDiscount)) / 100) * 100;
+  return {
+    id: `${merchantId}:${product.id}`,
+    merchantId,
+    productId: product.id,
+    listPriceCents,
+    floorPriceCents,
+    stock: 3,
+    baseWarrantyMonths: t.baseWarrantyMonths,
+    maxWarrantyMonths: t.maxWarrantyMonths,
+    warrantyCostPerYearCents: Math.round((listPriceCents * t.warrantyCostPct) / 100) * 100,
+    // The owner's limits bind, not the store's margins.
+    costCents: Math.round((floorPriceCents * 0.85) / 100) * 100,
+    maxSellingPriceCents: listPriceCents,
+    standardDeliveryDays: t.standardDeliveryDays,
+    expressDeliveryDays: t.expressDeliveryDays,
+    expressCostCents: t.expressCostCents,
+    shippingCents: t.shippingCents,
+    maxDiscountPct: t.maxDiscount,
+    openingDiscountPct: t.opening,
+    sellerListing: true,
+  };
+}
+
 const SEEDS: Record<MerchantId, ListingSeed[]> = {
   // Premium store: Apple-heavy, top-end Windows and Android, at or near list price.
   atelier: [
@@ -140,9 +222,10 @@ function buildListing(merchantId: MerchantId, seed: ListingSeed): Listing {
   };
 }
 
-const INITIAL_LISTINGS: Listing[] = (Object.keys(SEEDS) as MerchantId[]).flatMap((m) =>
-  SEEDS[m].map((seed) => buildListing(m, seed)),
-);
+const INITIAL_LISTINGS: Listing[] = (Object.keys(SEEDS) as MerchantId[]).flatMap((m) => [
+  ...SEEDS[m].map((seed) => buildListing(m, seed)),
+  ...SELLER_LISTINGS.map((id) => buildSellerListing(m, id)),
+]);
 
 /** Fresh copy of the seed inventory (stock is mutable per process). */
 export function seedListings(): Listing[] {
