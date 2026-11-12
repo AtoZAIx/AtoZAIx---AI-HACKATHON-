@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const remote = { sessions: new Map<string, unknown>(), orders: new Map<string, unknown>(), events: new Set<string>(), reads: 0, writes: 0 };
+const remote = { sessions: new Map<string, unknown>(), orders: new Map<string, unknown>(), events: new Set<string>(), reads: 0, writes: 0, lists: 0 };
 const copy = <T,>(v: T): T => structuredClone(v);
 
 vi.mock("@/lib/nexus/supabase-sync", () => ({
@@ -18,7 +18,7 @@ vi.mock("@/lib/nexus/supabase-sync", () => ({
   fetchOrder: async (id: string) => copy(remote.orders.get(id) ?? null),
   fetchOrderByPayPalId: async (pp: string) => copy([...remote.orders.values()].find((o) => (o as { payment?: { paypalOrderId?: string } }).payment?.paypalOrderId === pp) ?? null),
   fetchOrderByCaptureId: async (c: string) => copy([...remote.orders.values()].find((o) => (o as { payment?: { captureId?: string } }).payment?.captureId === c) ?? null),
-  fetchRecentSessions: async () => [...remote.sessions.values()].map(copy),
+  fetchRecentSessions: async () => (remote.lists++, [...remote.sessions.values()].map(copy)),
   fetchRecentOrders: async () => [...remote.orders.values()].map(copy),
   recordWebhookEvent: async (id: string) => (remote.events.has(id) ? false : (remote.events.add(id), true)),
   appendSecurityRecord: async () => true,
@@ -72,6 +72,17 @@ describe("on Vercel (shared mode), every copy of the app sees the same deals", (
     expect(savedWhenShown).toBe(true); // "Choose this deal" on another server finds the result
     otherServer();
     expect((await store.getSession(session.id))?.status).toBe("negotiated");
+  });
+
+  it("lists of deals are fetched once and reused for a few seconds, and fresh again after any save", async () => {
+    const { session } = await createSession("noise cancelling headphones for travel under $400");
+    remote.lists = 0;
+    await store.listSessions(20);
+    await store.listSessions(20); // the notifications bell and the page ask for the same list
+    expect(remote.lists).toBe(1);
+    await store.updateSession(session.id, (s) => void (s.negotiationRun = 7));
+    expect((await store.listSessions(20)).find((s) => s.id === session.id)?.negotiationRun).toBe(7);
+    expect(remote.lists).toBe(2);
   });
 
   it("a server with an old copy in memory reads the latest one, and doesn't overwrite newer changes", async () => {

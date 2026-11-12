@@ -51,10 +51,18 @@ export function Notifications() {
       }
     };
     void poll();
-    const t = setInterval(() => void poll(), 15000);
+    // Every 30 seconds, only while the tab is visible; straight away when you come back to it.
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") void poll();
+    }, 30000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void poll();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       alive = false;
       clearInterval(t);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 

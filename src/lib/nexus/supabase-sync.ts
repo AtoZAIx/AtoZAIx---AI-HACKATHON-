@@ -165,6 +165,8 @@ export interface SupabaseStatus {
   reachable: boolean;
   tables: Record<"sessions" | "orders" | "webhook_events" | "security_ledger", boolean>;
   error: string | null;
+  /** How long one small query takes from this server, in ms (shows how far the database is). */
+  latencyMs?: number | null;
 }
 
 /** Checks the project answers and which tables exist (for the Settings page). */
@@ -172,9 +174,11 @@ export async function supabaseStatus(): Promise<SupabaseStatus> {
   const names = ["sessions", "orders", "webhook_events", "security_ledger"] as const;
   const tables = { sessions: false, orders: false, webhook_events: false, security_ledger: false };
   if (!supabaseEnabled()) return { configured: false, reachable: false, tables, error: null };
+  const started = performance.now();
   const results = await Promise.all(names.map((t) => rest(`${t}?select=*&limit=0`)));
+  const latencyMs = Math.round(performance.now() - started);
   names.forEach((t, i) => (tables[t] = Boolean(results[i])));
   // An HTTP error (like "table not found") still means the project answered; a network error means it didn't.
   const reachable = results.some(Boolean) || /HTTP \d{3}/.test(lastError ?? "");
-  return { configured: true, reachable, tables, error: lastError };
+  return { configured: true, reachable, tables, error: lastError, latencyMs };
 }

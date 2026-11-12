@@ -69,11 +69,14 @@ export default function HomePage() {
 
 async function ContinueList() {
   await connection();
-  const sessions = (await store.listSessions(20)).filter((s) => s.intent);
+  const [all, orders] = await Promise.all([store.listSessions(20), store.listOrders(50)]);
+  const sessions = all.filter((s) => s.intent);
   if (!sessions.length) return null;
+  // One orders list for all rows, instead of one database call per deal.
+  const byId = new Map(orders.map((o) => [o.id, o]));
   const rows = await Promise.all(
     sessions.slice(0, 5).map(async (s) => {
-      const order = s.orderId ? await store.getOrder(s.orderId) : null;
+      const order = s.orderId ? (byId.get(s.orderId) ?? (await store.getOrder(s.orderId))) : null;
       return { s, order, next: nextAction(s, order) };
     }),
   );

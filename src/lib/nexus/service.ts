@@ -328,7 +328,8 @@ export async function* streamNegotiation(sessionId: string, signal?: AbortSignal
   });
 
   const listings = await store.listListings();
-  const pace = Number(process.env.NEXUS_PACE_MS ?? 380);
+  // A short pause between agent messages so people can follow along; 200 ms keeps a whole negotiation near 10 seconds.
+  const pace = Number(process.env.NEXUS_PACE_MS ?? 200);
   let stale = false;
   store.beginBurst(sessionId);
   try {

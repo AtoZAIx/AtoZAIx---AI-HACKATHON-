@@ -85,6 +85,24 @@ interface Burst {
 const bursts = (globalThis as unknown as { __nexusBursts?: Map<string, Burst> }).__nexusBursts ?? new Map<string, Burst>();
 (globalThis as unknown as { __nexusBursts?: Map<string, Burst> }).__nexusBursts = bursts;
 
+/**
+ * Shared mode list cache: lists of recent deals and orders are fetched once
+ * and reused for a few seconds (pages, the notifications bell and the fraud
+ * check all ask for them). Any save on this server clears it, and only as many
+ * rows as asked for are fetched.
+ */
+const LIST_TTL_MS = 5000;
+const lists = (globalThis as unknown as { __nexusLists?: { sessions?: { at: number; limit: number }; orders?: { at: number; limit: number } } }).__nexusLists ?? {};
+(globalThis as unknown as { __nexusLists?: typeof lists }).__nexusLists = lists;
+const listFresh = (k: "sessions" | "orders", limit: number) => {
+  const c = lists[k];
+  return Boolean(c && Date.now() - c.at < LIST_TTL_MS && c.limit >= Math.min(limit, 100));
+};
+const dropListCache = () => {
+  lists.sessions = undefined;
+  lists.orders = undefined;
+};
+
 function kickBurstWrite(id: string) {
   const b = bursts.get(id);
   if (!b || b.writing || !b.dirty) return;
@@ -137,6 +155,7 @@ export const store = {
   async endBurst(id: string): Promise<void> {
     await this.flushSession(id);
     bursts.delete(id);
+    dropListCache();
   },
   async getSession(id: string): Promise<CommerceSession | null> {
     if (sharedStore()) {
@@ -155,6 +174,7 @@ export const store = {
   async saveSession(session: CommerceSession): Promise<void> {
     session.updatedAt = new Date().toISOString();
     state().sessions.set(session.id, clone(session));
+    dropListCache();
     if (sharedStore()) await db.upsertSession(state().sessions.get(session.id)!);
     else scheduleSessionWrite(session.id);
   },
@@ -173,6 +193,7 @@ export const store = {
     mutate(next);
     next.updatedAt = new Date().toISOString();
     state().sessions.set(id, clone(next));
+    if (!burst) dropListCache();
     if (burst) {
       burst.dirty = true;
       kickBurstWrite(id);
@@ -181,9 +202,11 @@ export const store = {
     return next;
   },
   async listSessions(limit = 20): Promise<CommerceSession[]> {
-    if (db.supabaseEnabled() && (sharedStore() || !hydrated.__nexusHydrated?.sessions)) {
+    if (db.supabaseEnabled() && (sharedStore() ? !listFresh("sessions", limit) : !hydrated.__nexusHydrated?.sessions)) {
       hydrated.__nexusHydrated = { ...hydrated.__nexusHydrated, sessions: true };
-      for (const s of await db.fetchRecentSessions<CommerceSession>(100)) if (sharedStore() || !state().sessions.has(s.id)) state().sessions.set(s.id, clone(s));
+      const n = sharedStore() ? Math.min(100, Math.max(limit, 20)) : 100;
+      for (const s of await db.fetchRecentSessions<CommerceSession>(n)) if (sharedStore() || !state().sessions.has(s.id)) state().sessions.set(s.id, clone(s));
+      if (sharedStore()) lists.sessions = { at: Date.now(), limit: n };
     }
     return [...state().sessions.values()]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -226,6 +249,7 @@ export const store = {
   async saveOrder(order: NexusOrder): Promise<void> {
     order.updatedAt = new Date().toISOString();
     remember(order);
+    dropListCache();
     // Orders matter most: written straight away, after the session they belong to.
     if (db.supabaseEnabled()) {
       await flushSessionWrite(order.sessionId);
@@ -242,9 +266,11 @@ export const store = {
     return clone(next);
   },
   async listOrders(limit = 50): Promise<NexusOrder[]> {
-    if (db.supabaseEnabled() && (sharedStore() || !hydrated.__nexusHydrated?.orders)) {
+    if (db.supabaseEnabled() && (sharedStore() ? !listFresh("orders", limit) : !hydrated.__nexusHydrated?.orders)) {
       hydrated.__nexusHydrated = { ...hydrated.__nexusHydrated, orders: true };
-      for (const o of await db.fetchRecentOrders<NexusOrder>(100)) if (sharedStore() || !state().orders.has(o.id)) remember(o);
+      const n = sharedStore() ? Math.min(100, Math.max(limit, 20)) : 100;
+      for (const o of await db.fetchRecentOrders<NexusOrder>(n)) if (sharedStore() || !state().orders.has(o.id)) remember(o);
+      if (sharedStore()) lists.orders = { at: Date.now(), limit: n };
     }
     return [...state().orders.values()]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))

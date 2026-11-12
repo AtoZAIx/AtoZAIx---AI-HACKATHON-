@@ -99,6 +99,6 @@ function storageRow(st: SupabaseStatus): { name: string; status: React.ReactNode
   return {
     name,
     status: <StatusBadge tone="success" label="Supabase" />,
-    detail: "Deals, orders, PayPal webhook ids and the security ledger are saved to your Supabase project and read back after a restart. The Money plan stays in your browser.",
+    detail: `Deals, orders, PayPal webhook ids and the security ledger are saved to your Supabase project and read back after a restart. The Money plan stays in your browser.${st.latencyMs != null ? ` Database response from this server: ${st.latencyMs} ms${st.latencyMs > 120 ? " (far away: run the server in the same region as Supabase)" : ""}.` : ""}`,
   };
 }
