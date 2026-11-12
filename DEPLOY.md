@@ -23,6 +23,11 @@ accounts. Secrets go into Vercel's dashboard, never into the code or GitHub.
 request can land on any copy, so deals and orders are always read from and saved to Supabase
 (the app switches to this "shared mode" by itself when it runs on Vercel).
 
+**Server region: Tokyo.** `vercel.json` runs the app's server code in Vercel's Tokyo region (`hnd1`),
+next to the Supabase project (AWS `ap-northeast-1`, Tokyo). Keep them in the same region: Settings → Data
+storage shows the database response time, and above about 120 ms means they have drifted apart. If you
+ever move Supabase, change `regions` in `vercel.json` to match.
+
 **Don't set `APP_URL` on Vercel.** The app uses the address the visitor actually opened, which
 keeps passkeys and PayPal's return link working on your main link and on preview links.
 
