@@ -112,11 +112,3 @@ npm run typecheck && npm run lint && npm run build
 `npm run test:e2e` builds the app and starts its own production server on port 3100 (`E2E_PORT`) with the payment simulator forced on, so it never resets or restarts your dev server on :3000 and works even when `.env.local` holds PayPal Sandbox keys.
 
 `POST /api/dev/reset` restores seed data (disabled in production unless `NEXUS_ALLOW_RESET=1`).
-
-## Not yet
-
-- **Supabase** (database, auth, Realtime) is not connected. State lives in server memory, so it resets on restart and won't work across Vercel serverless instances. Live updates stream as NDJSON from the API. The target schema is in `supabase/migrations/`.
-- **Passkey approval** is not implemented; approval is an explicit on-screen consent.
-- **PayPal Sandbox, partly verified with real keys:** sign-in to PayPal's API, order creation for the approved amount, payee pinning, and loading the PayPal and card buttons all work with real Sandbox credentials. Buyer approval followed by capture has not yet been completed end to end.
-- **Untested with real credentials:** Gemini (including photo recognition) and wallet eligibility are written against current SDKs but were only exercised with keys unset.
-- **Voice** relies on browser SpeechRecognition (Chrome, Edge, Safari). Other browsers get a clear fallback to text.
