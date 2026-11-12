@@ -29,7 +29,7 @@ export function VerificationVerdict({ report, className }: { report: Verificatio
       <div className="min-w-0 flex-1">
         <p className="font-semibold">{ok ? "All safety checks passed" : s.blocking.some((c) => c.status === "fail") ? "Stopped: an important check failed" : "Stopped: we couldn’t confirm something important"}</p>
         <p className="text-xs text-muted-foreground">
-          Checked <LocalTime iso={report.checkedAt} mode="datetime" /> by fixed Nexus rules, not by AI guesswork
+          Checked <LocalTime iso={report.checkedAt} mode="datetime" /> by fixed AtoZAIx rules, not by AI guesswork
         </p>
       </div>
       <dl className="flex gap-4 text-center text-xs">

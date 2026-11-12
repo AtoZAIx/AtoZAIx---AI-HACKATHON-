@@ -59,7 +59,7 @@ export function PaymentVerification({ initial, simulator }: { initial: NexusOrde
             <OrderStatusBadge status={order.status} />
           </div>
           <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-            <Id label="Nexus order ID" value={order.id} />
+            <Id label="AtoZAIx order ID" value={order.id} />
             <Id label="PayPal order ID" value={p.paypalOrderId} />
             <Id label="PayPal capture ID" value={p.captureId ?? "Not captured"} />
             <Id label="Captured amount" value={p.capturedAmountCents != null ? formatMoney(p.capturedAmountCents) : "—"} plain />

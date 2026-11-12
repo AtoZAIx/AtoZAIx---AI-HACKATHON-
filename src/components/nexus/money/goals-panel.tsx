@@ -12,8 +12,8 @@ import { newId } from "./use-money-plan";
 import { CurrencyInput, useCurrency, useFmt } from "./currency";
 import { GoalIcon, ProgressRing, ShimmerBar } from "./goal-visuals";
 import { VaultDetails } from "./vault-panel";
-import { createVaultGoal, localDay, LOCK_OPTIONS, moveFromReserve, reserveThisMonth } from "@/lib/nexus/household";
-import { PiggyBankIcon } from "lucide-react";
+import { createVaultGoal, localDay, LOCK_OPTIONS, lockedMoney, moveFromReserve, reserveThisMonth } from "@/lib/nexus/household";
+import { LockIcon, PiggyBankIcon } from "lucide-react";
 
 const PRIORITY_LABEL: Record<Priority, string> = { high: "High priority", medium: "Medium priority", low: "Low priority" };
 const field = "h-9 w-full min-w-0 rounded-lg border bg-background px-2 text-sm outline-none focus:border-brand/50";
@@ -64,6 +64,7 @@ export function GoalsPanel({
             No goals yet. Add what you’re saving for (a house, a car, a bike, a holiday) and we’ll track it every month.
           </p>
         )}
+        <LockedMoneyCard plan={plan} now={now} />
         {summary}
         <ul className="space-y-3">
           {month.goals.map((gp) => (
@@ -149,13 +150,17 @@ function GoalCard({ gp, update, bought, hasPay, now }: { gp: GoalPlan; update: U
       </div>
       )}
       {bought ? (
-        <Notice tone="success">Bought for {formatMoney(bought.totalCents)} with PayPal Nexus, paid from this goal’s savings.</Notice>
+        <Notice tone="success">Bought for {formatMoney(bought.totalCents)} with AtoZAIx, paid from this goal’s savings.</Notice>
       ) : !hasPay && gp.status !== "done" ? (
         <p className="text-sm text-muted-foreground">
           To reach it by {monthLabel(g.dueMonth)}, save about <b className="tabular">{formatMoney(gp.neededCents)}</b> a month. Add your pay with Edit to check it fits.
         </p>
       ) : gp.status === "done" ? (
         locked ? null : <Notice tone="success">Goal reached. You’ve saved enough.</Notice>
+      ) : gp.status === "on-track" && gp.reachMonth === now ? (
+        <p className="tabular text-sm" data-testid="goal-monthly">
+          <b>{formatMoney(gp.monthlyCents)}</b> this month finishes it: your 10% for goals covers all of it, {monthLabel(g.dueMonth) === monthLabel(now) ? "right on time" : `well before ${monthLabel(g.dueMonth)}`}. The rest of your 10% goes to your Goals reserve.
+        </p>
       ) : gp.status === "on-track" && gp.monthlyCents > gp.neededCents && gp.reachMonth ? (
         <p className="tabular text-sm" data-testid="goal-monthly">
           Save <b>{formatMoney(gp.monthlyCents)}</b> a month: more than the {formatMoney(gp.neededCents)} it needs, because at least 10% of your income goes to goals. You’ll reach it by{" "}
@@ -382,6 +387,50 @@ function GoalsReserveCard({ plan, month, update, now, onAddGoal }: { plan: Money
         </p>
       )}
       <p className="text-[11px] text-muted-foreground">Virtual savings planned in this app; no money moves from your bank.</p>
+    </div>
+  );
+}
+
+/** The money locked for goals, highlighted: the total, and each fund with when it unlocks. */
+function LockedMoneyCard({ plan, now }: { plan: MoneyPlan; now: string }) {
+  const formatMoney = useFmt();
+  const locked = lockedMoney(plan, now, localDay());
+  if (locked.totalCents <= 0) return null;
+  const when = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  return (
+    <div id="locked-money" className="scroll-mt-24 space-y-3 rounded-[22px] border border-gold/60 bg-gradient-to-br from-gold-soft via-gold-soft/50 to-background p-5 shadow-card" data-testid="locked-money">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.18em] text-gold-ink uppercase">
+            <LockIcon className="size-3.5" aria-hidden /> Locked money
+          </p>
+          <p className="tabular font-display text-4xl leading-tight" data-testid="locked-total">
+            {formatMoney(locked.totalCents)}
+          </p>
+        </div>
+        <p className="max-w-xs text-xs text-muted-foreground">Kept for your goals only. Each fund unlocks on its date; the Goals reserve can only go into a goal.</p>
+      </div>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {locked.items.map((i) => (
+          <li key={i.id} className="space-y-1.5 rounded-xl bg-background/80 px-3 py-2.5" data-testid={`locked-${i.kind === "reserve" ? "reserve" : i.name}`}>
+            <div className="flex items-baseline justify-between gap-2 text-sm">
+              <span className="flex min-w-0 items-center gap-1.5 font-medium">
+                {i.kind === "reserve" ? <PiggyBankIcon className="size-4 shrink-0 text-gold-ink" aria-hidden /> : <LockIcon className="size-3.5 shrink-0 text-gold-ink" aria-hidden />}
+                <span className="truncate">{i.name}</span>
+              </span>
+              <b className="tabular">{formatMoney(i.savedCents)}</b>
+            </div>
+            {i.targetCents ? (
+              <div className="h-1.5 rounded-full bg-secondary" aria-hidden>
+                <div className="h-1.5 rounded-full bg-gold-ink" style={{ width: `${Math.min(100, Math.max(2, (i.savedCents / i.targetCents) * 100))}%` }} />
+              </div>
+            ) : null}
+            <p className="tabular text-[11px] text-muted-foreground">
+              {i.kind === "reserve" ? "For your next goal" : `of ${formatMoney(i.targetCents ?? 0)} · unlocks ${when(i.unlocksOn!)}`}
+            </p>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

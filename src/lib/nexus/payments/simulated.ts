@@ -15,7 +15,7 @@ import {
  * Local stand-in for PayPal Orders v2, used when no sandbox credentials are
  * configured. It enforces the same lifecycle (CREATED → APPROVED →
  * COMPLETED), returns the same shapes and signs its webhooks, so every
- * verification path in Nexus runs unchanged. It never moves money.
+ * verification path in AtoZAIx runs unchanged. It never moves money.
  */
 
 interface SimOrder {
@@ -31,13 +31,19 @@ interface SimOrder {
   captureRequests: Map<string, PaymentView>;
   /** Test hook: capture this amount instead of the order amount. */
   tamperCaptureCents?: number;
+  /** What the simulated buyer's bank does: pay now, hold for review, or decline. */
+  outcome?: SimOutcome;
+  /** Capture state, like PayPal's: COMPLETED, or PENDING while on hold, or DECLINED after review. */
+  captureStatus?: "COMPLETED" | "PENDING" | "DECLINED";
 }
 
 const g = globalThis as unknown as { __simOrders?: Map<string, SimOrder>; __simWebhookSecret?: string };
 const orders = () => (g.__simOrders ??= new Map());
 
 function webhookSecret(): string {
-  return process.env.NEXUS_SIM_WEBHOOK_SECRET || (g.__simWebhookSecret ??= randomBytes(32).toString("hex"));
+  if (process.env.NEXUS_SIM_WEBHOOK_SECRET) return process.env.NEXUS_SIM_WEBHOOK_SECRET;
+  if (process.env.VERCEL) throw new Error("NEXUS_SIM_WEBHOOK_SECRET is not set. Add it in Vercel → Settings → Environment Variables (see DEPLOY.md).");
+  return (g.__simWebhookSecret ??= randomBytes(32).toString("hex"));
 }
 
 function paypalStyleId(prefix = ""): string {
@@ -46,13 +52,16 @@ function paypalStyleId(prefix = ""): string {
   return prefix + Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("").slice(0, 17 - prefix.length);
 }
 
+export type SimOutcome = "approve" | "review" | "decline";
+
 function view(o: SimOrder): PaymentView {
   const captured = o.status === "COMPLETED";
   return {
     paypalOrderId: o.id,
     orderStatus: o.status,
     captureId: o.captureId,
-    captureStatus: captured ? "COMPLETED" : null,
+    captureStatus: captured ? (o.captureStatus ?? "COMPLETED") : null,
+    captureStatusReason: captured && o.captureStatus === "PENDING" ? "PENDING_REVIEW" : null,
     amountCents: captured ? (o.tamperCaptureCents ?? o.amountCents) : null,
     currency: captured ? o.currency : null,
     customId: o.customId,
@@ -68,7 +77,9 @@ function sign(transmissionId: string, time: string, body: string): string {
 }
 
 export const simulatedGateway: PaymentGateway & {
-  approve(paypalOrderId: string): Promise<PaymentView>;
+  approve(paypalOrderId: string, outcome?: SimOutcome): Promise<PaymentView>;
+  /** PayPal finishing its review of a held payment: completed or declined. */
+  settle(paypalOrderId: string, result: "COMPLETED" | "DECLINED"): PaymentView;
   buildWebhook(v: PaymentView, eventType?: string): { headers: Headers; body: string };
   /** Fresh signed headers (new transmission) for a body, as a PayPal re-delivery would carry. */
   signHeaders(body: string, time?: string): Headers;
@@ -86,7 +97,7 @@ export const simulatedGateway: PaymentGateway & {
       amountCents: input.order.totalCents,
       currency: input.order.currency,
       customId: input.order.id,
-      invoiceId: `NEXUS-${input.order.id}`,
+      invoiceId: `ATOZAIX-${input.order.id}`,
       referenceId: input.order.id,
       payee,
       captureId: null,
@@ -97,10 +108,18 @@ export const simulatedGateway: PaymentGateway & {
     return { id, status: "CREATED", payee };
   },
 
-  async approve(paypalOrderId) {
+  async approve(paypalOrderId, outcome = "approve") {
     const o = orders().get(paypalOrderId);
     if (!o) throw new PaymentError("RESOURCE_NOT_FOUND", 404);
     if (o.status === "CREATED") o.status = "APPROVED";
+    o.outcome = outcome;
+    return view(o);
+  },
+
+  settle(paypalOrderId, result) {
+    const o = orders().get(paypalOrderId);
+    if (!o || o.status !== "COMPLETED" || o.captureStatus !== "PENDING") throw new PaymentError("Nothing is on hold for this payment", 409);
+    o.captureStatus = result;
     return view(o);
   },
 
@@ -111,7 +130,14 @@ export const simulatedGateway: PaymentGateway & {
     if (replay) return replay; // PayPal-Request-Id idempotency
     if (o.status === "CREATED") throw new PaymentError("ORDER_NOT_APPROVED", 422);
     if (o.status === "COMPLETED") throw new PaymentError("ORDER_ALREADY_CAPTURED", 422);
+    // Like PayPal: a declined funding source fails the capture, and the buyer must approve again with another one.
+    if (o.outcome === "decline") {
+      o.status = "CREATED";
+      o.outcome = undefined;
+      throw new PaymentError("PayPal capture failed: INSTRUMENT_DECLINED", 422);
+    }
     o.status = "COMPLETED";
+    o.captureStatus = o.outcome === "review" ? "PENDING" : "COMPLETED";
     o.captureId = paypalStyleId("CAP");
     const v = view(o);
     o.captureRequests.set(requestId, v);

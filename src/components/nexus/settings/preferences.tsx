@@ -53,7 +53,7 @@ export function PreferencesPanel({ allowReset }: { allowReset: boolean }) {
         <Row title="Speak buyer-agent replies" body="In voice mode, read replies aloud. You can mute at any time.">
           <Switch checked={prefs.speakReplies} onCheckedChange={(v) => update({ speakReplies: v })} aria-label="Speak buyer agent replies" />
         </Row>
-        <Row title="Reduce motion" body="Nexus already follows your system's reduced-motion setting.">
+        <Row title="Reduce motion" body="AtoZAIx already follows your system's reduced-motion setting.">
           <Switch checked={prefs.reduceMotion} onCheckedChange={(v) => update({ reduceMotion: v })} aria-label="Reduce motion" />
         </Row>
       </section>

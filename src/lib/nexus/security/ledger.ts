@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { appendSecurityRecord, supabaseEnabled } from "../supabase-sync";
 
@@ -34,7 +35,9 @@ const GENESIS = "0".repeat(64);
 const g = globalThis as unknown as { __nexusLedger?: { file: string; seq: number; lastHash: string; records: LedgerRecord[] } };
 
 function dataDir() {
-  return process.env.NEXUS_DATA_DIR || join(process.cwd(), ".nexus-data");
+  if (process.env.NEXUS_DATA_DIR) return process.env.NEXUS_DATA_DIR;
+  // Serverless hosts (Vercel) only allow writing to the temp folder; Supabase keeps the lasting copy.
+  return process.env.VERCEL ? join(tmpdir(), "nexus-data") : join(process.cwd(), ".nexus-data");
 }
 
 const hashOf = (r: Omit<LedgerRecord, "hash">) => createHash("sha256").update(JSON.stringify([r.seq, r.at, r.kind, r.data, r.prevHash])).digest("hex");
@@ -91,8 +94,13 @@ export function appendRecord<T extends Record<string, unknown>>(kind: LedgerKind
   const s = state();
   const base = { seq: s.seq + 1, at, kind, data: redactDeep(data), prevHash: s.lastHash };
   const record = { ...base, hash: hashOf(base) } as LedgerRecord<T>;
-  mkdirSync(dataDir(), { recursive: true });
-  appendFileSync(s.file, `${JSON.stringify(record)}\n`, { encoding: "utf8", mode: 0o600 });
+  try {
+    mkdirSync(dataDir(), { recursive: true });
+    appendFileSync(s.file, `${JSON.stringify(record)}\n`, { encoding: "utf8", mode: 0o600 });
+  } catch (err) {
+    // A read-only disk must never break a payment or a deal: the record stays in memory and in Supabase.
+    console.error("[nexus] audit log file not writable:", err instanceof Error ? err.message : err);
+  }
   s.seq = record.seq;
   s.lastHash = record.hash;
   s.records.push(record as LedgerRecord);

@@ -81,6 +81,7 @@ export function normalizeOrder(json: any): PaymentView {
     orderStatus: json.status,
     captureId: capture?.id ?? null,
     captureStatus: capture?.status ?? null,
+    captureStatusReason: capture?.status_details?.reason ?? null,
     amountCents: capture?.amount?.value ? parsePayPalValue(capture.amount.value) : null,
     currency: capture?.amount?.currency_code ?? null,
     customId: capture?.custom_id ?? unit?.custom_id ?? null,
@@ -95,14 +96,14 @@ export function buildOrderBody(input: CreateOrderInput) {
   const { order } = input;
   const product = order.lineItems.find((l) => l.kind === "product")!;
   const included = order.lineItems.filter((l) => l.kind !== "product").map((l) => l.name.replace(" (included)", ""));
-  const description = `${input.productName} from ${input.merchantName} via PayPal Nexus${included.length ? ` · incl. ${included.join(", ")}` : ""}`.slice(0, 127);
+  const description = `${input.productName} from ${input.merchantName} via AtoZAIx${included.length ? ` · incl. ${included.join(", ")}` : ""}`.slice(0, 127);
   return {
     intent: "CAPTURE",
     purchase_units: [
       {
         reference_id: order.id,
         custom_id: order.id,
-        invoice_id: `NEXUS-${order.id}`,
+        invoice_id: `ATOZAIX-${order.id}`,
         description,
         soft_descriptor: "NEXUS",
         amount: {
@@ -130,7 +131,7 @@ export function buildOrderBody(input: CreateOrderInput) {
     payment_source: {
       paypal: {
         experience_context: {
-          brand_name: "PayPal Nexus",
+          brand_name: "AtoZAIx",
           user_action: "PAY_NOW",
           // A booking token (property, rental, car) ships nothing.
           shipping_preference: input.order.booking ? "NO_SHIPPING" : "GET_FROM_FILE",

@@ -33,7 +33,7 @@ async function Loader({ params }: Pick<PageProps<"/payments/[id]">, "params">) {
     <>
       <PageHeader
         title="Payment check"
-        description="After you pay, Nexus asks PayPal directly what was paid, to whom and how much, and only then confirms your order."
+        description="After you pay, AtoZAIx asks PayPal directly what was paid, to whom and how much, and only then confirms your order."
         actions={
           <Button asChild variant="outline">
             <Link href={`/orders/${order.id}`}>Order details</Link>

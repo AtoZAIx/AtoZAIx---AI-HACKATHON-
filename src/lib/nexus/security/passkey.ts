@@ -169,8 +169,8 @@ export function verifyApproval(input: {
 export function registrationOptions(origin: string, challenge: string, existing: StoredPasskey | null) {
   return {
     challenge,
-    rp: { name: "PayPal Nexus", id: new URL(origin).hostname },
-    user: { id: b64u(randomBytes(16)), name: "Nexus shopper", displayName: "Nexus shopper" },
+    rp: { name: "AtoZAIx", id: new URL(origin).hostname },
+    user: { id: b64u(randomBytes(16)), name: "AtoZAIx shopper", displayName: "AtoZAIx shopper" },
     pubKeyCredParams: [
       { type: "public-key", alg: ALGORITHMS.ES256 },
       { type: "public-key", alg: ALGORITHMS.RS256 },

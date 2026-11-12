@@ -31,7 +31,7 @@ export default function AgentsPage() {
       <PageHeader
        
         title="Meet the agents"
-        description="Your agent works for you. Three store agents each try to win your order in their own way. Nexus keeps the conversation fair."
+        description="Your agent works for you. Three store agents each try to win your order in their own way. AtoZAIx keeps the conversation fair."
         actions={
           <Suspense fallback={null}>
             <AiMode />

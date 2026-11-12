@@ -1,45 +1,26 @@
-import { useId } from "react";
 import { cn } from "cn";
 
-/** Nexus mark: a buyer node linked to three merchant nodes. */
-export function NexusMark({ className }: { className?: string }) {
-  // Unique per logo: a gradient defined inside a hidden copy (e.g. the desktop sidebar on a phone) wouldn't paint.
-  const id = useId().replace(/:/g, "");
+/** Compact AtoZAIx monogram, for the collapsed sidebar. */
+export function AtoZMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 32 32" aria-hidden className={cn("size-8 shrink-0", className)}>
-      <defs>
-        <linearGradient id={`${id}-tile`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#2b2b2b" />
-          <stop offset="1" stopColor="#111111" />
-        </linearGradient>
-        <linearGradient id={`${id}-gold`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#f1d9a6" />
-          <stop offset="1" stopColor="#b8955a" />
-        </linearGradient>
-      </defs>
-      <rect width="32" height="32" rx="9" fill={`url(#${id}-tile)`} />
-      <rect x="0.5" y="0.5" width="31" height="31" rx="8.5" fill="none" stroke="#b8955a" strokeOpacity="0.45" />
-      <g stroke="#ffffff" strokeOpacity="0.55" strokeWidth="1.6" strokeLinecap="round">
-        <path d="M16 18.5 9 10M16 18.5 23 10M16 18.5V25" />
-      </g>
-      <circle cx="16" cy="18.5" r="3.6" fill={`url(#${id}-gold)`} />
-      <circle cx="9" cy="10" r="2.2" fill="#ffffff" />
-      <circle cx="23" cy="10" r="2.2" fill="#ffffff" />
-      <circle cx="16" cy="25.5" r="2.2" fill="#ffffff" />
-    </svg>
+    <span aria-hidden className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl bg-foreground pt-1 text-background shadow-card", className)}>
+      <span className="font-script text-[34px] leading-none">Az</span>
+    </span>
   );
 }
 
-export function Wordmark({ className, collapsed }: { className?: string; collapsed?: boolean }) {
+/**
+ * The AtoZAIx wordmark in an Italian cursive script, with PAYPAL spaced
+ * underneath (the hackathon this was built for, and the payments it uses).
+ */
+export function Wordmark({ className, collapsed, compact }: { className?: string; collapsed?: boolean; compact?: boolean }) {
+  if (collapsed) return <AtoZMark className={className} />;
   return (
-    <span className={cn("flex items-center gap-2.5", className)}>
-      <NexusMark />
-      {!collapsed && (
-        <span className="leading-tight">
-          <span className="block text-[13px] font-semibold tracking-[0.2em]">PAYPAL NEXUS</span>
-          <span className="font-display block text-[13px] text-gold-ink italic">Agentic commerce</span>
-        </span>
-      )}
+    <span className={cn("inline-flex flex-col leading-none", className)}>
+      <span className={cn("font-script whitespace-nowrap text-foreground", compact ? "text-[36px]" : "text-[44px]")} style={{ lineHeight: 0.8 }}>
+        AtoZAIx
+      </span>
+      <span className={cn("pl-1 font-medium tracking-[0.42em] text-muted-foreground", compact ? "mt-0.5 text-[8px]" : "mt-1 text-[9px]")}>PAYPAL</span>
     </span>
   );
 }

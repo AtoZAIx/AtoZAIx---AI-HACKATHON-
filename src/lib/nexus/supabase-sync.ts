@@ -120,6 +120,7 @@ async function readData<T>(path: string): Promise<T[]> {
 export const fetchSession = async <T>(id: string) => (await readData<T>(`sessions?id=eq.${enc(id)}&select=data&limit=1`))[0] ?? null;
 export const fetchOrder = async <T>(id: string) => (await readData<T>(`orders?id=eq.${enc(id)}&select=data&limit=1`))[0] ?? null;
 export const fetchOrderByPayPalId = async <T>(paypalOrderId: string) => (await readData<T>(`orders?paypal_order_id=eq.${enc(paypalOrderId)}&select=data&limit=1`))[0] ?? null;
+export const fetchOrderByCaptureId = async <T>(captureId: string) => (await readData<T>(`orders?data->payment->>captureId=eq.${enc(captureId)}&select=data&limit=1`))[0] ?? null;
 export const fetchRecentSessions = <T>(limit: number) => readData<T>(`sessions?select=data&order=created_at.desc&limit=${Math.max(1, Math.min(200, limit))}`);
 export const fetchRecentOrders = <T>(limit: number) => readData<T>(`orders?select=data&order=created_at.desc&limit=${Math.max(1, Math.min(200, limit))}`);
 

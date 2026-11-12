@@ -62,6 +62,14 @@ const pending = (globalThis as unknown as { __nexusPending?: Map<string, ReturnT
 (globalThis as unknown as { __nexusPending?: typeof pending }).__nexusPending = pending;
 const hydrated = globalThis as unknown as { __nexusHydrated?: { sessions?: boolean; orders?: boolean } };
 
+/**
+ * Shared mode, for serverless hosts like Vercel: many short-lived copies of
+ * the app run side by side and any request can land on any of them, so
+ * Supabase is the source of truth. Reads come fresh from Supabase and writes
+ * are saved before the request finishes (no background timers).
+ */
+export const sharedStore = () => db.supabaseEnabled() && (Boolean(process.env.VERCEL) || process.env.NEXUS_SHARED_STORE === "1");
+
 function scheduleSessionWrite(id: string) {
   if (!db.supabaseEnabled()) return;
   clearTimeout(pending.get(id));
@@ -87,6 +95,10 @@ async function flushSessionWrite(id: string) {
 
 export const store = {
   async getSession(id: string): Promise<CommerceSession | null> {
+    if (sharedStore()) {
+      const fresh = await db.fetchSession<CommerceSession>(id);
+      if (fresh) state().sessions.set(id, clone(fresh));
+    }
     let s = state().sessions.get(id);
     // After a restart, read it back from Supabase.
     if (!s && db.supabaseEnabled()) {
@@ -99,24 +111,26 @@ export const store = {
   async saveSession(session: CommerceSession): Promise<void> {
     session.updatedAt = new Date().toISOString();
     state().sessions.set(session.id, clone(session));
-    scheduleSessionWrite(session.id);
+    if (sharedStore()) await db.upsertSession(state().sessions.get(session.id)!);
+    else scheduleSessionWrite(session.id);
   },
   /** Read-modify-write against the latest copy, so concurrent writers don't clobber each other. */
   async updateSession(id: string, mutate: (s: CommerceSession) => void): Promise<CommerceSession> {
-    if (!state().sessions.has(id)) await this.getSession(id); // may come back from Supabase
+    if (sharedStore() || !state().sessions.has(id)) await this.getSession(id); // the latest copy, from Supabase
     const current = state().sessions.get(id);
     if (!current) throw new Error(`Session ${id} not found`);
     const next = clone(current);
     mutate(next);
     next.updatedAt = new Date().toISOString();
     state().sessions.set(id, clone(next));
-    scheduleSessionWrite(id);
+    if (sharedStore()) await db.upsertSession(next);
+    else scheduleSessionWrite(id);
     return next;
   },
   async listSessions(limit = 20): Promise<CommerceSession[]> {
-    if (db.supabaseEnabled() && !hydrated.__nexusHydrated?.sessions) {
+    if (db.supabaseEnabled() && (sharedStore() || !hydrated.__nexusHydrated?.sessions)) {
       hydrated.__nexusHydrated = { ...hydrated.__nexusHydrated, sessions: true };
-      for (const s of await db.fetchRecentSessions<CommerceSession>(100)) if (!state().sessions.has(s.id)) state().sessions.set(s.id, clone(s));
+      for (const s of await db.fetchRecentSessions<CommerceSession>(100)) if (sharedStore() || !state().sessions.has(s.id)) state().sessions.set(s.id, clone(s));
     }
     return [...state().sessions.values()]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -144,6 +158,10 @@ export const store = {
   },
 
   async getOrder(id: string): Promise<NexusOrder | null> {
+    if (sharedStore()) {
+      const fresh = await db.fetchOrder<NexusOrder>(id);
+      if (fresh) remember(fresh);
+    }
     let o = state().orders.get(id);
     if (!o && db.supabaseEnabled()) {
       const saved = await db.fetchOrder<NexusOrder>(id);
@@ -162,7 +180,7 @@ export const store = {
     }
   },
   async updateOrder(id: string, mutate: (o: NexusOrder) => void): Promise<NexusOrder> {
-    if (!state().orders.has(id)) await this.getOrder(id);
+    if (sharedStore() || !state().orders.has(id)) await this.getOrder(id);
     const current = state().orders.get(id);
     if (!current) throw new Error(`Order ${id} not found`);
     const next = clone(current);
@@ -171,9 +189,9 @@ export const store = {
     return clone(next);
   },
   async listOrders(limit = 50): Promise<NexusOrder[]> {
-    if (db.supabaseEnabled() && !hydrated.__nexusHydrated?.orders) {
+    if (db.supabaseEnabled() && (sharedStore() || !hydrated.__nexusHydrated?.orders)) {
       hydrated.__nexusHydrated = { ...hydrated.__nexusHydrated, orders: true };
-      for (const o of await db.fetchRecentOrders<NexusOrder>(100)) if (!state().orders.has(o.id)) remember(o);
+      for (const o of await db.fetchRecentOrders<NexusOrder>(100)) if (sharedStore() || !state().orders.has(o.id)) remember(o);
     }
     return [...state().orders.values()]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -182,6 +200,15 @@ export const store = {
   },
   async findOrderByCaptureId(captureId: string): Promise<NexusOrder | null> {
     const o = [...state().orders.values()].find((x) => x.payment?.captureId === captureId);
+    if (o && !sharedStore()) return clone(o);
+    // Refund and dispute webhooks may land on a server that never saw the order.
+    if (db.supabaseEnabled()) {
+      const saved = await db.fetchOrderByCaptureId<NexusOrder>(captureId);
+      if (saved) {
+        remember(saved);
+        return clone(saved);
+      }
+    }
     return o ? clone(o) : null;
   },
   async findOrderByPayPalId(paypalOrderId: string): Promise<NexusOrder | null> {

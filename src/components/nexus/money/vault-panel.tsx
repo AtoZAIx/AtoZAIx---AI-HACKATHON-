@@ -95,7 +95,7 @@ export function VaultDetails({ goal, monthlyCents, reachMonth = null, update, no
             )
           </span>
         </p>
-        <p className="mt-1 text-[11px] text-muted-foreground">Kept safe in your name by a regulated partner bank, never by PayPal Nexus. Today this plan is simulated in the app.</p>
+        <p className="mt-1 text-[11px] text-muted-foreground">Kept safe in your name by a regulated partner bank, never by AtoZAIx. Today this plan is simulated in the app.</p>
       </div>
 
       {/* 2. Three plain facts. */}

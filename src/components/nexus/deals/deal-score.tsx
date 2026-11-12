@@ -15,7 +15,7 @@ const PRIORITY_NAME: Record<PurchaseIntent["priority"], string> = {
 /**
  * Transparent scoring. Every number here is the one the buyer agent used.
  * Merchant reliability is shown as not scored: there is no verified history
- * for simulated merchants, and Nexus doesn't invent one.
+ * for simulated merchants, and AtoZAIx doesn't invent one.
  */
 export function DealScore({ ranked, priority }: { ranked: RankedOffer; priority: PurchaseIntent["priority"] }) {
   const b = ranked.breakdown;

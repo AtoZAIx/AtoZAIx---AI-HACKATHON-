@@ -21,6 +21,8 @@ export interface PaymentView {
   orderStatus: string;
   captureId: string | null;
   captureStatus: string | null;
+  /** Why a PENDING capture is on hold (PayPal's status_details.reason), e.g. PENDING_REVIEW. */
+  captureStatusReason?: string | null;
   amountCents: number | null;
   currency: string | null;
   customId: string | null;

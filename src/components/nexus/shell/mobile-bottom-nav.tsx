@@ -18,7 +18,10 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   if (pathname?.startsWith("/voice")) return null;
   return (
-    <nav aria-label="Primary mobile" className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 backdrop-blur-md md:hidden">
+    <nav
+      aria-label="Primary mobile"
+      className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 rounded-[27px] border bg-card/95 shadow-raised backdrop-blur-md md:hidden"
+    >
       <ul className="grid h-16 grid-cols-5">
         {ITEMS.map((item) => {
           const active = isActive(pathname, { ...item, match: item.match });

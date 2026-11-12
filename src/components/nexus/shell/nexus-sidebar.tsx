@@ -111,10 +111,12 @@ function SidebarNavView({ collapsed = false, onNavigate, pathname }: { collapsed
 
 export function NexusSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   return (
-    <aside className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col border-r bg-sidebar/80 backdrop-blur-xl transition-[width] duration-300 lg:flex", collapsed ? "w-[76px]" : "w-[248px]")} aria-label="Sidebar">
+    <aside className={cn("sticky top-0 hidden h-dvh shrink-0 py-3 pl-3 transition-[width] duration-300 lg:block", collapsed ? "w-[88px]" : "w-[260px]")} aria-label="Sidebar">
+      {/* A floating panel with 27px rounded corners, like the header. */}
+      <div className="flex h-full flex-col overflow-hidden rounded-[27px] border bg-sidebar/80 shadow-card backdrop-blur-xl">
       <div className={cn("flex h-16 items-center", collapsed ? "justify-center" : "px-5")}>
         {/* Expanded, the visible wordmark names the link; collapsed, only the logo shows. */}
-        <Link href="/" aria-label={collapsed ? "PayPal Nexus home" : undefined}>
+        <Link href="/" aria-label={collapsed ? "AtoZAIx home" : undefined}>
           <Wordmark collapsed={collapsed} />
         </Link>
       </div>
@@ -140,6 +142,7 @@ export function NexusSidebar({ collapsed, onToggle }: { collapsed: boolean; onTo
           {collapsed ? <PanelLeftOpenIcon className="size-4" /> : <PanelLeftCloseIcon className="size-4" />}
           {!collapsed && "Collapse menu"}
         </button>
+      </div>
       </div>
     </aside>
   );

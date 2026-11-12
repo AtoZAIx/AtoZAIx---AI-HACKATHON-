@@ -1,4 +1,4 @@
-# PayPal Nexus
+# AtoZAIx
 
 **Discover. Negotiate. Verify. Pay.** An AI-to-AI agentic commerce platform. A buyer agent turns a chat, voice or image request into a structured brief, negotiates with three independent (simulated) merchant agents, verifies the agreed terms deterministically, and hands the customer a PayPal checkout for exactly those terms. Payment is confirmed only after server-side verification.
 

@@ -1,4 +1,5 @@
 import "server-only";
+import { paymentOutcome, paypalCode, plainPaymentError, PENDING_REASONS } from "./payment-outcome";
 import { createHash } from "node:crypto";
 import { STEP_UP_MIN_CENTS, stepUpRequired } from "./step-up";
 import { negotiate } from "./agents/coordinator";
@@ -634,14 +635,14 @@ export async function startPayment(
 }
 
 /** Simulator only: stands in for the buyer approving on PayPal. */
-export async function simulatorApprove(orderId: string, paypalOrderId: string): Promise<NexusOrder> {
+export async function simulatorApprove(orderId: string, paypalOrderId: string, outcome: "approve" | "review" | "decline" = "approve"): Promise<NexusOrder> {
   if (paypalConfigured()) throw new NexusError("Simulator is disabled when PayPal sandbox is configured", 403);
   const order = await requireOrder(orderId);
   if (order.payment?.paypalOrderId !== paypalOrderId) throw new NexusError("PayPal order doesn't belong to this order", 409);
-  await simulatedGateway.approve(paypalOrderId);
+  await simulatedGateway.approve(paypalOrderId, outcome);
   return store.updateOrder(orderId, (o) => {
     o.payment!.status = "APPROVED";
-    lifecycle(o, "approved", "Simulated buyer approval");
+    lifecycle(o, "approved", `Simulated buyer approval${outcome === "approve" ? "" : outcome === "review" ? " (bank holds it for review)" : " (bank will decline)"}`);
     o.timeline.push(timeline("Buyer approved on PayPal", "Simulated buyer approval (no funds move in simulator mode)"));
   });
 }
@@ -670,17 +671,44 @@ export async function capturePayment(orderId: string, paypalOrderId: string): Pr
   }
   let view;
   try {
-    await gateway.captureOrder(paypalOrderId, `capture-${order.id}`);
+    // One PayPal-Request-Id per attempt: a retry after a decline must not replay the declined response.
+    const attempt = (order.payment.lifecycle ?? []).filter((e) => e.state === "failed").length;
+    await gateway.captureOrder(paypalOrderId, attempt ? `capture-${order.id}-${attempt}` : `capture-${order.id}`);
     // Authoritative re-read: never trust the client or the capture response alone.
     view = await gateway.getOrder(paypalOrderId);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Capture failed";
     await store.updateOrder(orderId, (o) => {
       o.payment!.captureLockAt = null;
+      o.payment!.lastError = { code: paypalCode(message) ?? "CAPTURE_FAILED", at: nowIso() };
+      // A declined funding source: the buyer approves again with another one (the PayPal order stays open).
+      if (paypalCode(message) === "INSTRUMENT_DECLINED") o.payment!.status = "CREATED";
       lifecycle(o, "failed", message);
-      o.timeline.push(timeline("Capture failed", message, "error"));
+      o.timeline.push(timeline("Payment declined", plainPaymentError(message), "error"));
     });
     throw new NexusError(message, err instanceof PaymentError ? err.status : 502);
+  }
+
+  // PayPal holds some payments before they complete (review, eCheck): that's pending, not a failure.
+  if (view.captureStatus === "PENDING") {
+    const held = await store.updateOrder(orderId, (o) => {
+      const p = o.payment!;
+      p.status = "PENDING";
+      p.pendingReason = view.captureStatusReason ?? "OTHER";
+      p.captureId = view.captureId;
+      p.capturedAmountCents = view.amountCents;
+      p.capturedCurrency = view.currency;
+      p.captureLockAt = null;
+      o.status = "payment_captured";
+      lifecycle(o, "capturing", `Capture ${view.captureId ?? "—"} is PENDING (${p.pendingReason})`);
+      o.timeline.push(timeline("Payment on hold", PENDING_REASONS[p.pendingReason] ?? PENDING_REASONS.OTHER, "info"));
+    });
+    if (gateway.provider === "simulated") {
+      const hook = simulatedGateway.buildWebhook(view, "PAYMENT.CAPTURE.PENDING");
+      await processWebhook(hook.headers, hook.body);
+      return (await store.getOrder(orderId))!;
+    }
+    return held;
   }
 
   let updated = await store.updateOrder(orderId, (o) => {
@@ -710,11 +738,17 @@ async function reconcile(orderId: string, view?: Awaited<ReturnType<ReturnType<t
   const order = await requireOrder(orderId);
   if (!order.payment) return order;
   const v = view ?? (await getGateway().getOrder(order.payment.paypalOrderId));
+  if (v.captureStatus === "PENDING") return order; // still on hold: wait for PayPal's COMPLETED or DENIED
   const report = verifyPayment(order, v, { webhookRequired: webhookRequired() });
   const failed = report.checks.filter((c) => c.essential && c.status === "fail");
   const pending = report.checks.some((c) => c.essential && c.status === "unknown");
   const updated = await store.updateOrder(orderId, (o) => {
     o.payment!.verification = report;
+    if (v.captureStatus === "COMPLETED" && o.payment!.status === "PENDING") {
+      o.payment!.status = "COMPLETED";
+      o.payment!.pendingReason = null;
+      lifecycle(o, "captured", "PayPal completed the payment after its hold");
+    }
     // Refunds and disputes are later states; verification never overrides them.
     if (o.status === "refunded" || o.status === "disputed") return;
     const before = o.status;
@@ -783,7 +817,7 @@ export async function processWebhook(headers: Headers, rawBody: string): Promise
     return { status: 409, detail: "Replayed webhook rejected" };
   }
   if (!(await store.markWebhookEvent(event.id))) return { status: 200, detail: "Duplicate event ignored" };
-  if (!order?.payment) return { status: 200, detail: "No matching Nexus order" };
+  if (!order?.payment) return { status: 200, detail: "No matching AtoZAIx order" };
 
   await store.updateOrder(order.id, (o) => {
     o.payment!.webhooks.push(record);
@@ -792,7 +826,17 @@ export async function processWebhook(headers: Headers, rawBody: string): Promise
       case "PAYMENT.CAPTURE.DENIED":
         o.status = "payment_failed";
         o.payment!.status = "DECLINED";
+        o.payment!.pendingReason = null;
+        o.payment!.lastError = { code: "DENIED", at: nowIso() };
         lifecycle(o, "failed", "PayPal denied the capture");
+        o.timeline.push(timeline("Payment declined", "PayPal declined the payment after reviewing it", "error"));
+        break;
+      case "PAYMENT.CAPTURE.PENDING":
+        // Still on hold: note PayPal's reason; COMPLETED or DENIED follows.
+        if (o.status !== "confirmed") {
+          o.payment!.status = "PENDING";
+          o.payment!.pendingReason = (event.resource as { status_details?: { reason?: string } } | undefined)?.status_details?.reason ?? o.payment!.pendingReason ?? "OTHER";
+        }
         break;
       case "PAYMENT.CAPTURE.REFUNDED":
         o.status = "refunded";
@@ -888,13 +932,41 @@ export async function simulateForgedWebhook(orderId: string): Promise<{ status: 
 }
 
 /** Simulator only: deliver a signed refund or dispute event for a captured order. */
-export async function simulatePaymentEvent(orderId: string, kind: "refund" | "dispute"): Promise<{ status: number; detail: string }> {
+export async function simulatePaymentEvent(orderId: string, kind: "refund" | "dispute" | "review-complete" | "review-deny"): Promise<{ status: number; detail: string }> {
   if (paypalConfigured()) throw new NexusError("Only available in simulator mode", 403);
   const order = await requireOrder(orderId);
   if (!order.payment?.captureId) throw new NexusError("Capture the payment first", 409);
+  if (kind === "review-complete" || kind === "review-deny") {
+    const settled = simulatedGateway.settle(order.payment.paypalOrderId, kind === "review-complete" ? "COMPLETED" : "DECLINED");
+    const hook = simulatedGateway.buildWebhook(settled, kind === "review-complete" ? "PAYMENT.CAPTURE.COMPLETED" : "PAYMENT.CAPTURE.DENIED");
+    return processWebhook(hook.headers, hook.body);
+  }
   const view = await simulatedGateway.getOrder(order.payment.paypalOrderId);
   const hook = simulatedGateway.buildWebhook(view, kind === "refund" ? "PAYMENT.CAPTURE.REFUNDED" : "CUSTOMER.DISPUTE.CREATED");
   return processWebhook(hook.headers, hook.body);
+}
+
+/**
+ * Try again after a decline: the declined attempt is kept in the order's
+ * history, and a fresh payment starts for the same approved deal. If the
+ * approval has expired, the customer approves again first (passkey included).
+ * A failed safety check (wrong amount or payee) is never retried.
+ */
+export async function retryPayment(orderId: string): Promise<NexusOrder> {
+  const order = await requireOrder(orderId);
+  const outcome = paymentOutcome(order);
+  if (order.status !== "payment_failed" || outcome?.retry !== "new-payment") throw new NexusError("This payment can’t be retried", 409);
+  const approvalOk = verifyApproval(order).ok;
+  return store.updateOrder(orderId, (o) => {
+    if (o.payment) o.failedPayments = [...(o.failedPayments ?? []), o.payment];
+    o.payment = null;
+    o.status = approvalOk ? "approved" : "awaiting_approval";
+    if (!approvalOk) {
+      o.approval = null;
+      o.riskConfirmedAt = null;
+    }
+    o.timeline.push(timeline("Trying again", approvalOk ? "Starting a new payment for the same approved deal" : "Approval expired: approve the deal again, then pay", "info"));
+  });
 }
 
 export function paymentConfig() {

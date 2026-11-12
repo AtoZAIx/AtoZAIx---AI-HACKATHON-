@@ -93,7 +93,7 @@ const CHECK_TEXT: Record<string, string> = {
   // Deal checks
   product: "It’s the exact product you asked for.",
   specs: "It meets everything you said you must have.",
-  merchant: "The store is a registered Nexus store.",
+  merchant: "The store is a registered AtoZAIx store.",
   payee: "We know which PayPal account the money goes to.",
   total: "The total adds up correctly, in US dollars.",
   "list-price": "The “original price” we compared against is the store’s real price.",

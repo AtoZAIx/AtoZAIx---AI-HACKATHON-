@@ -52,11 +52,16 @@ export function PayPalCheckout({ order, payments, onOrder }: { order: NexusOrder
   /** Reuse the open PayPal order if there is one, so card retries keep their history. */
   const ensureOrder = async () => (order.status === "payment_pending" && order.payment?.paypalOrderId ? order.payment.paypalOrderId : create());
   const capture = async (id: string) => {
-    // Same key for the same PayPal order: double clicks or retries can never capture twice.
-    const data = await api<{ order: NexusOrder }>(`/api/orders/${order.id}/capture`, { json: { paypalOrderId: id }, headers: { "Idempotency-Key": `capture-${id}` } });
-    onOrder(data.order);
-    if (data.order.status === "confirmed") toast.success("Payment verified. Order confirmed.");
-    else if (data.order.status === "payment_failed") toast.error("Payment verification failed");
+    // Same key for the same PayPal order: double clicks can never capture twice (a failed attempt isn't cached).
+    try {
+      const data = await api<{ order: NexusOrder }>(`/api/orders/${order.id}/capture`, { json: { paypalOrderId: id }, headers: { "Idempotency-Key": `capture-${id}` } });
+      onOrder(data.order);
+    } catch (err) {
+      // A decline: show the failure screen (with its reason) from the order's own state.
+      const fresh = await api<{ order: NexusOrder }>(`/api/orders/${order.id}`).catch(() => null);
+      if (fresh) onOrder(fresh.order);
+      throw err;
+    }
   };
   const run = async (key: string, fn: () => Promise<void>) => {
     setBusy(key);
@@ -155,7 +160,7 @@ export function PayPalCheckout({ order, payments, onOrder }: { order: NexusOrder
               onClick={() =>
                 run("approve", async () => {
                   if (!simOrderId) return;
-                  await api(`/api/orders/${order.id}/simulator/approve`, { json: { paypalOrderId: simOrderId } });
+                  await api(`/api/orders/${order.id}/simulator/approve`, { json: { paypalOrderId: simOrderId, outcome: "approve" } });
                   await capture(simOrderId);
                   setSimOrderId(null);
                 })
@@ -166,6 +171,37 @@ export function PayPalCheckout({ order, payments, onOrder }: { order: NexusOrder
               {busy === "approve" ? <Loader2Icon className="animate-spin" /> : <CheckIcon />} Approve payment
             </Button>
           </DialogFooter>
+          {/* Demo mode: play the other things a bank or PayPal can do, to see each result screen. */}
+          <div className="space-y-2 border-t pt-3">
+            <p className="text-xs text-muted-foreground">Or try what else can happen:</p>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["review", "PayPal holds it for review", "sim-review"],
+                  ["decline", "Bank declines it", "sim-decline"],
+                ] as const
+              ).map(([outcome, label, testId]) => (
+                <Button
+                  key={outcome}
+                  size="sm"
+                  variant="outline"
+                  disabled={busy !== null}
+                  data-testid={testId}
+                  onClick={() =>
+                    run(outcome, async () => {
+                      if (!simOrderId) return;
+                      await api(`/api/orders/${order.id}/simulator/approve`, { json: { paypalOrderId: simOrderId, outcome } });
+                      setSimOrderId(null);
+                      await capture(simOrderId);
+                    })
+                  }
+                >
+                  {busy === outcome && <Loader2Icon className="animate-spin" />} {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
         </DialogContent>
       </Dialog>
       {order.risk && <RiskLine risk={order.risk} confirmed={Boolean(order.riskConfirmedAt)} />}

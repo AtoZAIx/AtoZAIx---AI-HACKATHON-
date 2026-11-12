@@ -103,7 +103,7 @@ export default function HowItWorksPage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="PayPal Nexus in two minutes"
+        eyebrow="AtoZAIx in two minutes"
         title="AI agents that negotiate for you, and can’t overspend."
         description="Your buyer agent bargains with stores’ AI agents in real time, every deal is checked, and PayPal pays only after you approve the exact terms."
         actions={

@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * PayPal Nexus design system: quiet luxury.
+ * AtoZAIx design system: quiet luxury.
  * Warm ivory surfaces, graphite ink, champagne-gold detailing and a serif
  * display voice; deep sapphire is the brand accent. Motion is slow and
  * soft, and is switched off for people who ask for reduced motion.
@@ -18,6 +18,7 @@
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-geist-sans);
   --font-display: var(--font-display), ui-serif, Georgia, serif;
+  --font-script: var(--font-script), "Snell Roundhand", cursive;
 
   --color-gold: var(--gold);
   --color-gold-ink: var(--gold-ink);
@@ -251,6 +252,10 @@
     width: 1.25rem;
     height: 1px;
     background: linear-gradient(90deg, transparent, var(--gold));
+  }
+  .font-script {
+    font-family: var(--font-script), "Snell Roundhand", cursive;
+    font-weight: 400;
   }
   .font-display {
     font-family: var(--font-display);

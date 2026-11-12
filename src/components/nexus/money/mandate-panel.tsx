@@ -191,7 +191,7 @@ function MandateSetup({ goal, update, now, suggestedCents, previous }: { goal: G
             <p className="text-xs">
               In the live version, this step opens {RAIL[rail].where}, where you approve a mandate of <b>{formatMoney(amount)}</b> a month for {goal.name}.
             </p>
-            <p className="text-xs font-medium">PayPal Nexus will never ask for your UPI PIN, OTP or bank password.</p>
+            <p className="text-xs font-medium">AtoZAIx will never ask for your UPI PIN, OTP or bank password.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button

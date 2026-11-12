@@ -6,6 +6,8 @@ const g = globalThis as unknown as { __nexusSigningSecret?: string };
 
 function secret(): string {
   if (process.env.NEXUS_SIGNING_SECRET) return process.env.NEXUS_SIGNING_SECRET;
+  // On serverless hosts every copy of the app must share one secret, or a deal signed by one fails on another.
+  if (process.env.VERCEL) throw new Error("NEXUS_SIGNING_SECRET is not set. Add it in Vercel → Settings → Environment Variables (see DEPLOY.md).");
   // Dev fallback: a per-process secret. Set NEXUS_SIGNING_SECRET in production.
   g.__nexusSigningSecret ??= randomBytes(32).toString("hex");
   return g.__nexusSigningSecret;

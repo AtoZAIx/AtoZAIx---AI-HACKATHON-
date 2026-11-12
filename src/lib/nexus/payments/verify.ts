@@ -60,8 +60,8 @@ export function verifyPayment(order: NexusOrder, view: PaymentView, opts: { webh
   add(
     "Order linkage",
     "reference",
-    "Linked to this Nexus order",
-    view.customId === order.id && view.invoiceId === `NEXUS-${order.id}`,
+    "Linked to this AtoZAIx order",
+    view.customId === order.id && (view.invoiceId === `ATOZAIX-${order.id}` || view.invoiceId === `NEXUS-${order.id}`), // NEXUS- for orders paid before the rename
     true,
     `custom_id ${view.customId ?? "—"} · invoice ${view.invoiceId ?? "—"}`,
     [],

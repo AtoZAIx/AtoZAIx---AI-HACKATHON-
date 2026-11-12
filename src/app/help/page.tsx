@@ -9,7 +9,7 @@ const STEPS = [
   { icon: HandshakeIcon, title: "Agents negotiate", body: "Your buyer agent runs up to three rounds with three simulated merchants and ranks the final offers." },
   { icon: BadgeCheckIcon, title: "Deal is verified", body: "Selecting a deal runs deterministic checks. Anything essential that fails or is unknown blocks the order." },
   { icon: ShieldCheckIcon, title: "You approve", body: "You approve the exact amount and agreement version. Any change requires a fresh approval." },
-  { icon: WalletIcon, title: "PayPal pays", body: "You authenticate with PayPal. Nexus confirms the order only after verifying the capture server-side." },
+  { icon: WalletIcon, title: "PayPal pays", body: "You authenticate with PayPal. AtoZAIx confirms the order only after verifying the capture server-side." },
 ];
 
 const FAQ = [
@@ -25,7 +25,7 @@ const FAQ = [
 export default function HelpPage() {
   return (
     <Page>
-      <PageHeader title="Help & Support" description="How PayPal Nexus works, and answers to common questions." />
+      <PageHeader title="Help & Support" description="How AtoZAIx works, and answers to common questions." />
       <Section title="How it works">
         <ol className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {STEPS.map(({ icon: Icon, title, body }, i) => (

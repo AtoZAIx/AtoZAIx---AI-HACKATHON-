@@ -1,5 +1,5 @@
 /**
- * Core domain types for PayPal Nexus.
+ * Core domain types for AtoZAIx.
  *
  * All money is integer cents (USD). Anything that reaches the browser goes
  * through `toPublic*` helpers so merchant floor prices never leak.
@@ -489,7 +489,11 @@ export interface PaymentRecord {
   paypalOrderId: string;
   /** Set while a capture is in flight, so a second capture can't run at the same time. */
   captureLockAt?: string | null;
-  status: "CREATED" | "APPROVED" | "COMPLETED" | "DECLINED" | "FAILED" | "REFUNDED" | "DISPUTED";
+  status: "CREATED" | "APPROVED" | "COMPLETED" | "PENDING" | "DECLINED" | "FAILED" | "REFUNDED" | "DISPUTED";
+  /** PayPal's reason for holding a PENDING capture (status_details.reason), e.g. PENDING_REVIEW. */
+  pendingReason?: string | null;
+  /** The last error PayPal returned (e.g. INSTRUMENT_DECLINED), for a plain-language reason. */
+  lastError?: { code: string; at: string } | null;
   createdAt: string;
   /** Payment lifecycle as observed by the backend. */
   lifecycle: PaymentLifecycleEntry[];
@@ -611,6 +615,8 @@ export interface NexusOrder {
   /** How many times payment was started for this order. */
   paymentAttempts?: number;
   payment: PaymentRecord | null;
+  /** Earlier payment attempts that were declined, kept when the customer tries again. */
+  failedPayments?: PaymentRecord[];
   timeline: TimelineEntry[];
   createdAt: string;
   updatedAt: string;

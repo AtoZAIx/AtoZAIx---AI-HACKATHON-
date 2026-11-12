@@ -1,10 +1,10 @@
 "use client";
 
-import { CheckIcon, PencilIcon, PlusIcon, RepeatIcon, Trash2Icon } from "lucide-react";
+import { LockIcon, CheckIcon, PencilIcon, PlusIcon, RepeatIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { goalsShare, addMonths, goalFloor, goalSaved, monthLabel, remainingAtStart, stepUpOf, type BudgetItem, type MoneyPlan, type MonthPlan, type MonthSpending } from "@/lib/nexus/budget";
-import { reserveThisMonth, allocation, autoSaveOf, categoryStatuses, emergencyStatus, limitOf, localDay, nextAutoPay, setAutoPay, spentToday, todayAllowance, type AlertLevel, type TodayAllowance } from "@/lib/nexus/household";
+import { lockedMoney, reserveThisMonth, allocation, autoSaveOf, categoryStatuses, emergencyStatus, limitOf, localDay, nextAutoPay, setAutoPay, spentToday, todayAllowance, type AlertLevel, type TodayAllowance } from "@/lib/nexus/household";
 import { buildPots, planPriorities } from "@/lib/nexus/savings-policy";
 import { GoalIcon, ShimmerBar } from "./goal-visuals";
 import { BuildPots, FamilyNotes, PRIORITY_COLOR, PriorityDonut, SavingsRate } from "./priorities";
@@ -21,6 +21,7 @@ const daysIn = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDa
 
 export function Overview({ plan, month, spending, now, onEdit }: { plan: MoneyPlan; month: MonthPlan; spending: MonthSpending; now: string; onEdit: () => void }) {
   const formatMoney = useFmt();
+  const locked = lockedMoney(plan, now, localDay());
   const d = new Date();
   const a = allocation(plan, month);
   const pri = planPriorities(plan, month);
@@ -72,6 +73,14 @@ export function Overview({ plan, month, spending, now, onEdit }: { plan: MoneyPl
           {formatMoney(a.income)}
         </b>
       </div>
+      {locked.totalCents > 0 && (
+        <a href="#locked-money" className="flex items-center justify-between gap-2 rounded-xl border border-gold/50 bg-gold-soft/60 px-3 py-2 text-sm hover:bg-gold-soft" data-testid="dash-locked">
+          <span className="flex items-center gap-1.5 font-medium text-gold-ink">
+            <LockIcon className="size-4" aria-hidden /> Locked money for your goals
+          </span>
+          <b className="tabular">{formatMoney(locked.totalCents)}</b>
+        </a>
+      )}
       <PriorityDonut p={pri} />
       <FamilyNotes plan={plan} enjoy={pri.enjoy} />
       <SavingsRate p={pri} />
@@ -350,25 +359,55 @@ export function GoalsThisMonth({ month, now, plan }: { month: MonthPlan; now: st
   const recordedAll = rows.reduce((t, r) => t + r.recorded, 0);
   // The rest of the mandatory 10% goes to the Goals reserve: it always stays with goals.
   const reserve = reserveThisMonth(plan, month, now).cents;
+  const SHADES = ["bg-brand", "bg-brand/65", "bg-brand/40", "bg-brand/25"];
+  const split = [
+    ...rows.filter((r) => r.planned > 0).map((r, i) => ({ key: r.g.id, name: r.g.name, cents: r.planned, cls: SHADES[i % SHADES.length] })),
+    ...(reserve > 0 ? [{ key: "reserve", name: "Goals reserve", cents: reserve, cls: "bg-gold-ink" }] : []),
+  ];
   return (
     <div className="space-y-2 rounded-xl bg-secondary/60 p-3" data-testid="goals-tracker">
-      <p className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-        <span className="font-medium">{monthLabel(now)}</span>
-        <span className="tabular text-muted-foreground">
-          <b className="text-foreground">{formatMoney(recordedAll)}</b> saved this month · {rows.every((r) => r.gp.status === "done") ? "every goal fully saved" : `${formatMoney(plannedAll)} planned`}
-          {reserve > 0 ? ` · ${formatMoney(reserve)} to Goals reserve` : ""}
-        </span>
-      </p>
+      {/* The whole goal share this month in one number, split into each goal and the Goals reserve. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-2" data-testid="goals-month">
+        <p className="text-sm">
+          <span className="font-medium">{monthLabel(now)}</span> ·{" "}
+          <b className="tabular text-base" data-testid="goals-month-total">
+            {formatMoney(plannedAll + reserve)}
+          </b>{" "}
+          to your goals
+        </p>
+        <p className="tabular text-[11px] text-muted-foreground">
+          {plannedAll + reserve > floor ? `more than the 10% minimum (${formatMoney(floor)})` : `10% of your income`} · {formatMoney(recordedAll)} saved so far
+        </p>
+      </div>
+      {plannedAll + reserve > 0 && (
+        <>
+          <div className="flex h-3 gap-0.5 overflow-hidden rounded-full bg-background" role="img" aria-label={`This month: ${split.map((x) => `${x.name} ${formatMoney(x.cents)}`).join(", ")}`}>
+            {split.map((x) => (
+              <span key={x.key} className={`h-full ${x.cls}`} style={{ width: `${(x.cents / (plannedAll + reserve)) * 100}%` }} />
+            ))}
+          </div>
+          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]" data-testid="goals-split">
+            {split.map((x) => (
+              <li key={x.key} className="flex items-center gap-1.5">
+                <span className={`size-2 rounded-full ${x.cls}`} aria-hidden />
+                {x.name} <b className="tabular">{formatMoney(x.cents)}</b>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       {floor > 0 && (
         <p className="text-[11px] text-muted-foreground" data-testid="goal-floor">
           10% of your income (<b className="tabular text-foreground">{formatMoney(floor)}</b>) goes to your goals every month.
-          {reserve > 0 && (
+          {reserve > 0 ? (
             <>
               {" "}
-              This month: <b className="tabular text-foreground">{formatMoney(Math.max(0, floor - reserve))}</b> into your goals and <b className="tabular text-foreground">{formatMoney(reserve)}</b> to your{" "}
-              <b className="text-foreground">Goals reserve</b>, kept for your goals.
+              Your goals need <b className="tabular text-foreground">{formatMoney(Math.max(0, floor - reserve))}</b> this month, so the other <b className="tabular text-foreground">{formatMoney(reserve)}</b> is
+              locked in your <b className="text-foreground">Goals reserve</b> for your next goal. All of it stays with your goals.
             </>
-          )}
+          ) : plannedAll > floor ? (
+            " Your goals need more than that this month, so they get all they need."
+          ) : null}
         </p>
       )}
       <ul className="divide-y divide-border/70">

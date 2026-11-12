@@ -57,7 +57,7 @@ const sleep = (ms: number, signal?: AbortSignal) =>
   });
 
 /**
- * The Nexus Coordinator. Runs a structured multi-round negotiation between
+ * The AtoZAIx Coordinator. Runs a structured multi-round negotiation between
  * the buyer agent and every merchant agent, yielding protocol events as they
  * happen so the UI can render the room live.
  */

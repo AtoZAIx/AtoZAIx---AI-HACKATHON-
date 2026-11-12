@@ -14,7 +14,7 @@ export function getGateway(): PaymentGateway {
 
 /**
  * Optional per-merchant sandbox payees, e.g. PAYPAL_PAYEE_EMAIL_BOLT.
- * When unset, PayPal assigns the API caller as payee and Nexus pins
+ * When unset, PayPal assigns the API caller as payee and AtoZAIx pins
  * whatever payee PayPal reports at order creation.
  */
 export function configuredPayee(merchantId: MerchantId): ExpectedPayee | null {

@@ -557,9 +557,9 @@ export interface MonthSpending {
   byBill: Map<string, number>;
   /** Logged free spending this month. */
   freeLoggedCents: number;
-  /** Nexus purchases this month that weren't bought for a goal (they count as free spending). */
+  /** AtoZAIx purchases this month that weren't bought for a goal (they count as free spending). */
   purchasesCents: number;
-  /** Nexus purchases matched to a product goal (paid from that goal's savings). */
+  /** AtoZAIx purchases matched to a product goal (paid from that goal's savings). */
   goalPurchases: Purchase[];
   freeSpentCents: number;
   freeLeftCents: number;

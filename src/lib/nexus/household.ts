@@ -573,6 +573,24 @@ export function reserveThisMonth(plan: MoneyPlan, month: MonthPlan, now: string)
   return entry ? { cents: entry.amountCents, recorded: true } : { cents: month.goalReserveCents, recorded: false };
 }
 
+/**
+ * Everything locked for goals, in one place: each locked fund (until it
+ * unlocks) and the Goals reserve (it can only go into a goal).
+ */
+export interface LockedMoney {
+  totalCents: number;
+  items: Array<{ id: string; name: string; savedCents: number; targetCents: number | null; unlocksOn: string | null; kind: "fund" | "reserve" }>;
+}
+
+export function lockedMoney(plan: MoneyPlan, now: string, today: string): LockedMoney {
+  const items: LockedMoney["items"] = plan.goals
+    .filter((g) => g.lockMonths && !g.withdrawal && goalSaved(g) > 0)
+    .map((g) => ({ id: g.id, name: g.name, savedCents: goalSaved(g), targetCents: g.targetCents, unlocksOn: vault(g, now, today).maturityDate, kind: "fund" as const }));
+  const reserve = plan.goalReserve?.savedCents ?? 0;
+  if (reserve > 0) items.push({ id: "reserve", name: "Goals reserve", savedCents: reserve, targetCents: null, unlocksOn: null, kind: "reserve" });
+  return { totalCents: items.reduce((t, i) => t + i.savedCents, 0), items };
+}
+
 /** Moves money from the Goals reserve into a goal (never more than the goal still needs). */
 export function moveFromReserve(plan: MoneyPlan, goalId: string, today: string, amountCents?: number): { plan: MoneyPlan; movedCents: number } {
   const r = plan.goalReserve;

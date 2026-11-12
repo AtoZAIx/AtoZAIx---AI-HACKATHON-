@@ -3,7 +3,7 @@ import type { AgentId } from "@/lib/nexus/types";
 
 const NODES: Array<{ id: AgentId; x: number; y: number; label: string; sub: string }> = [
   { id: "buyer", x: 110, y: 150, label: "Buyer Agent", sub: "Represents you" },
-  { id: "coordinator", x: 360, y: 150, label: "Nexus Coordinator", sub: "Runs the protocol" },
+  { id: "coordinator", x: 360, y: 150, label: "AtoZAIx Coordinator", sub: "Runs the protocol" },
   { id: "atelier", x: 620, y: 52, label: "Maison Aurum", sub: "Premium · simulated" },
   { id: "bolt", x: 620, y: 150, label: "Vantage Market", sub: "Competitive · simulated" },
   { id: "cove", x: 620, y: 248, label: "Cove Commerce", sub: "Retention · simulated" },
@@ -22,7 +22,7 @@ export function AgentNetworkGraph({ stats }: { stats: Record<AgentId, AgentStats
   const at = (id: AgentId) => NODES.find((n) => n.id === id)!;
   const live = stats.coordinator.status === "negotiating";
   return (
-    <svg viewBox="0 0 760 300" className="h-auto w-full" role="img" aria-label="Buyer agent connected through the Nexus Coordinator to three simulated merchant agents">
+    <svg viewBox="0 0 760 300" className="h-auto w-full" role="img" aria-label="Buyer agent connected through the AtoZAIx Coordinator to three simulated merchant agents">
       <line x1={at("buyer").x} y1={150} x2={at("coordinator").x} y2={150} stroke={live ? "var(--brand)" : "var(--border)"} strokeWidth="2" />
       {(["atelier", "bolt", "cove"] as AgentId[]).map((m) => (
         <line

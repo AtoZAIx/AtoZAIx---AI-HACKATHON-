@@ -1,6 +1,9 @@
 import { NexusError, streamNegotiation } from "@/lib/nexus/service";
 import { store } from "@/lib/nexus/store";
 
+/** Hosting time limit for the live negotiation stream (it usually finishes in under 30 seconds). */
+export const maxDuration = 120;
+
 /** Streams negotiation protocol events as NDJSON while the agents run. */
 export async function POST(req: Request, ctx: RouteContext<"/api/sessions/[id]/negotiate">) {
   const { id } = await ctx.params;

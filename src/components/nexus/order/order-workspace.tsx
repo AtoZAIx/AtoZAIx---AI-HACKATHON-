@@ -1,7 +1,6 @@
 "use client";
 
-import { ArrowLeftIcon, ArrowRightIcon, BadgeCheckIcon, CircleAlertIcon, ShieldCheckIcon } from "lucide-react";
-import { motion } from "motion/react";
+import { ArrowLeftIcon, CircleAlertIcon, ShieldCheckIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -18,6 +17,8 @@ import type { NexusOrder } from "@/lib/nexus/types";
 import { OrderTimeline } from "./order-timeline";
 import { PayPalCheckout, type PaymentsConfig } from "./paypal-checkout";
 import { PurchaseApproval } from "./purchase-approval";
+import { PaymentResult } from "./payment-result";
+import { paymentOutcome } from "@/lib/nexus/payment-outcome";
 import type { Purchase } from "@/lib/nexus/budget";
 import { LocalTime } from "@/components/nexus/common/local-time";
 
@@ -45,12 +46,13 @@ export function OrderWorkspace({ initial, payments, purchases = [] }: { initial:
     setOrder(data.order);
   }, [order.id]);
 
-  // While a webhook is outstanding, poll the backend rather than assuming success.
+  const pending = order.status === "payment_captured" || paymentOutcome(order)?.kind === "pending";
+  // While anything is pending (PayPal's review or its signed confirmation), poll the backend rather than assuming success.
   useEffect(() => {
-    if (order.status !== "payment_captured") return;
+    if (!pending) return;
     const t = setInterval(() => void refresh().catch(() => null), 3000);
     return () => clearInterval(t);
-  }, [order.status, refresh]);
+  }, [pending, refresh]);
 
   async function approve(withPasskey: boolean) {
     setBusy(true);
@@ -112,48 +114,20 @@ export function OrderWorkspace({ initial, payments, purchases = [] }: { initial:
     );
   }
 
-  const confirmed = order.status === "confirmed";
-  const trouble = order.status === "payment_failed" || order.status === "disputed" || order.status === "refunded";
+  const outcome = paymentOutcome(order);
+  // PayPal buttons stay open before paying, and after a decline that can be retried right there.
+  const showCheckout = (order.status === "approved" || order.status === "payment_pending") && (!outcome || outcome.retry === "checkout");
+  const captured = Boolean(order.payment?.captureId) && order.status !== "payment_failed";
 
   return (
     <div className="space-y-6">
       {header}
-      {confirmed && (
-        <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-3 rounded-2xl border border-success/30 bg-success-soft/60 p-5 sm:flex-row sm:items-center" data-testid="order-confirmed">
-          <BadgeCheckIcon className="size-8 shrink-0 text-success" />
-          <div className="flex-1">
-            <p className="font-semibold">You’re all set. Your order is paid and confirmed.</p>
-            <p className="text-sm text-muted-foreground">
-              You paid {formatMoney(order.totalCents)} to {merchant.name}. We double-checked with PayPal that the right amount went to the right store.
-            </p>
-          </div>
-          <Button asChild variant="outline">
-            <Link href={`/payments/${order.id}`}>
-              See payment details <ArrowRightIcon />
-            </Link>
-          </Button>
-        </motion.div>
-      )}
-      {trouble && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-error/30 bg-error-soft/60 p-5 sm:flex-row sm:items-center">
-          <CircleAlertIcon className="size-7 shrink-0 text-error" />
-          <p className="flex-1 text-sm">
-            {order.status === "payment_failed"
-              ? "Something didn’t match what you approved, so we didn’t confirm this order."
-              : order.status === "refunded"
-                ? "This payment was refunded."
-                : "A dispute was opened with PayPal for this payment."}
-          </p>
-          <Button asChild variant="outline">
-            <Link href={`/payments/${order.id}`}>View details</Link>
-          </Button>
-        </div>
-      )}
+      {outcome && <PaymentResult order={order} outcome={outcome} simulator={payments.provider === "simulated"} onOrder={setOrder} />}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-6">
-          {!confirmed && !trouble ? (
+          {showCheckout ? (
             <PayPalCheckout order={order} payments={payments} onOrder={setOrder} />
-          ) : (
+          ) : !captured ? null : (
             <section className="surface space-y-4 p-5">
               <h2 className="text-lg font-semibold">Receipt</h2>
               <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">

@@ -1,6 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+// Start from a clean server: other tests leave paid orders, which (correctly) show in this month's payments.
+test.beforeEach(async ({ request }) => {
+  expect((await request.post("/api/dev/reset")).ok()).toBe(true);
+});
+
 /** A rupee Money plan saved in this browser: rent on auto-pay, groceries, bills, and ENJOY categories. */
 async function savePlan(page: Page) {
   await page.goto("/");

@@ -43,7 +43,7 @@ export const MORE_NAV: NavItem[] = [
   { href: "/agents", label: "Meet the agents", hint: "Who negotiates for you", icon: NetworkIcon },
   { href: "/analytics", label: "Insights", hint: "Your savings and stats", icon: BarChart3Icon, match: ["/intelligence"] },
   { href: "/settings", label: "Settings", hint: "Preferences", icon: SettingsIcon },
-  { href: "/help", label: "Help", hint: "How Nexus works", icon: CircleHelpIcon },
+  { href: "/help", label: "Help", hint: "How AtoZAIx works", icon: CircleHelpIcon },
 ];
 
 export function isActive(pathname: string | null, item: Pick<NavItem, "href" | "match">): boolean {

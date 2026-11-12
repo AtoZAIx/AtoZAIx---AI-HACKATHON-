@@ -210,7 +210,7 @@ export function verifyDeal(input: DealVerificationInput): VerificationReport {
     input.hashTerms(terms) === input.termsHash && input.verifySignature(input.sessionId, input.offerId, input.termsHash, input.signature),
     true,
     `SHA-256 ${input.termsHash.slice(0, 12)}…`,
-    ["HMAC-SHA256 signed by the Nexus Coordinator", "Hash covers every term, including expiry"],
+    ["HMAC-SHA256 signed by the AtoZAIx Coordinator", "Hash covers every term, including expiry"],
   );
 
   // 10. Profit and concession policy (values stay confidential)

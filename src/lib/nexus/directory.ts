@@ -81,8 +81,8 @@ export const AGENTS: Record<AgentId, AgentProfile> = {
   },
   coordinator: {
     id: "coordinator",
-    name: "Nexus Coordinator",
-    role: "Nexus Coordinator",
+    name: "AtoZAIx Coordinator",
+    role: "AtoZAIx Coordinator",
     description: "Coordinates negotiation rounds, validates state and manages communication.",
     capabilities: ["RFQ broadcast", "Round sequencing", "State validation", "Agreement signing"],
     simulated: false,

@@ -23,7 +23,14 @@ test("10% for goals is mandatory: what a small goal doesn't need goes to the Goa
 
   // ₹1,500 to the car (all it needs) + ₹7,500 to the Goals reserve = the full ₹9,000.
   await expect(page.getByTestId("goal-floor")).toContainText("10% of your income (₹9,000) goes to your goals every month");
-  await expect(page.getByTestId("goal-floor")).toContainText("₹1,500 into your goals and ₹7,500 to your Goals reserve");
+  await expect(page.getByTestId("goal-floor")).toContainText("Your goals need ₹1,500 this month, so the other ₹7,500 is locked in your Goals reserve");
+  // The whole 10% shows as going to goals, split into the car and the reserve.
+  await expect(page.getByTestId("goals-month-total")).toHaveText("₹9,000");
+  await expect(page.getByTestId("goals-split")).toContainText("Car ₹1,500");
+  await expect(page.getByTestId("goals-split")).toContainText("Goals reserve ₹7,500");
+  // Locked money is highlighted: in the overview and in its own card (the car has nothing saved yet).
+  await expect(page.getByTestId("locked-total")).toHaveText("₹7,500");
+  await expect(page.getByTestId("dash-locked")).toContainText("₹7,500");
   const reserve = page.getByTestId("goals-reserve");
   await expect(page.getByTestId("goals-reserve-saved")).toHaveText("₹7,500");
   await expect(reserve).toContainText("never moved to spending");
@@ -36,6 +43,9 @@ test("10% for goals is mandatory: what a small goal doesn't need goes to the Goa
   await expect(page.getByTestId("tracker-Car")).toContainText("Reached");
   await expect(page.getByTestId("goals-reserve-saved")).toHaveText("₹6,000");
   await expect(reserve).toContainText("Your next goal can start with this money");
+  // Locked money: the car's ₹1,500 (unlocks with its lock-in) + ₹6,000 reserve.
+  await expect(page.getByTestId("locked-total")).toHaveText("₹7,500");
+  await expect(page.getByTestId("locked-Car")).toContainText("unlocks");
 
   // Still there after a reload.
   await page.reload();

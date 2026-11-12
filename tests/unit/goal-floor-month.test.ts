@@ -72,3 +72,18 @@ describe("the Goals reserve", () => {
     expect(parsePlan(JSON.parse(JSON.stringify(p))).goalReserve).toEqual(p.goalReserve);
   });
 });
+
+describe("locked money", () => {
+  it("adds up every locked fund and the Goals reserve, with each fund's unlock date", async () => {
+    const { applyGoalReserve, lockedMoney } = await import("@/lib/nexus/household");
+    let p = plan([car()]);
+    p = recordContribution(p, "car", { month: "2026-11", date: "2026-11-01", amountCents: R(1_000), kind: "scheduled" }).plan;
+    p = applyGoalReserve(p, "2026-11-05");
+    const l = lockedMoney(p, "2026-11", "2026-11-12");
+    expect(l.totalCents).toBe(R(1_000) + R(7_500));
+    expect(l.items).toEqual([
+      { id: "car", name: "Car", savedCents: R(1_000), targetCents: R(1_500), unlocksOn: "2030-11-01", kind: "fund" },
+      { id: "reserve", name: "Goals reserve", savedCents: R(7_500), targetCents: null, unlocksOn: null, kind: "reserve" },
+    ]);
+  });
+});

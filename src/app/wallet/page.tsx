@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Wallet" };
 export default function WalletPage() {
   return (
     <Page>
-      <PageHeader title="Wallet" description="Eligible PayPal checkout options for your purchases. Nexus never sees or stores your payment credentials." />
+      <PageHeader title="Wallet" description="Eligible PayPal checkout options for your purchases. AtoZAIx never sees or stores your payment credentials." />
       <Suspense fallback={<LoadingState variant="panel" />}>
         <Wallet />
       </Suspense>
@@ -35,7 +35,7 @@ async function Wallet() {
             compact
             icon={FlaskConicalIcon}
             title="PayPal Sandbox isn’t connected"
-            description="Checkout is running on the Nexus payment simulator, so there are no real wallet methods to show. Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET to check eligibility with PayPal."
+            description="Checkout is running on the AtoZAIx payment simulator, so there are no real wallet methods to show. Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET to check eligibility with PayPal."
           />
         )}
       </section>
@@ -46,8 +46,8 @@ async function Wallet() {
           </div>
           <ul className="space-y-2 text-muted-foreground">
             <li>You approve the exact amount before any payment exists.</li>
-            <li>You authenticate with PayPal directly; Nexus only receives an order reference.</li>
-            <li>Nexus captures server-side and re-reads the result from PayPal before confirming.</li>
+            <li>You authenticate with PayPal directly; AtoZAIx only receives an order reference.</li>
+            <li>AtoZAIx captures server-side and re-reads the result from PayPal before confirming.</li>
             <li>Settlement currency: USD.</li>
           </ul>
         </div>

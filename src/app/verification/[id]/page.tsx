@@ -38,7 +38,7 @@ async function Loader({ params }: Pick<PageProps<"/verification/[id]">, "params"
       <JourneySteps current={journeyStep(session, order)} />
       <PageHeader
         title="Safety checks"
-        description="Before any order is created, Nexus automatically checks the deal: the right product, a real price, stock, delivery, warranty, returns and your budget. Green means passed, red means failed, amber means we couldn’t confirm it."
+        description="Before any order is created, AtoZAIx automatically checks the deal: the right product, a real price, stock, delivery, warranty, returns and your budget. Green means passed, red means failed, amber means we couldn’t confirm it."
         actions={
           <>
             <Button asChild variant="outline">

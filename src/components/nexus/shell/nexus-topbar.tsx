@@ -14,13 +14,15 @@ import { ProfileMenu } from "./profile-menu";
 export function NexusTopbar() {
   const [drawer, setDrawer] = useState(false);
   return (
-    <header className="sticky top-0 z-30 border-b bg-background/70 backdrop-blur-xl backdrop-saturate-150">
-      <div className="flex h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 px-3 pt-3 md:px-4 lg:px-6">
+      {/* A floating bar with 27px rounded corners. */}
+      <div className="flex h-16 items-center gap-3 rounded-[27px] border bg-background/80 px-3 shadow-card sm:px-4 backdrop-blur-xl backdrop-saturate-150 md:px-5">
         <button type="button" className="flex size-9 items-center justify-center rounded-xl hover:bg-secondary lg:hidden" onClick={() => setDrawer(true)} aria-label="Open navigation">
           <MenuIcon className="size-5" />
         </button>
-        <Link href="/" className="lg:hidden" aria-label="PayPal Nexus home">
-          <Wordmark collapsed />
+        {/* The visible wordmark ("AtoZAIx PAYPAL") names the link. */}
+        <Link href="/" className="lg:hidden">
+          <Wordmark compact />
         </Link>
         <div className="hidden min-w-0 flex-1 md:block">
           <GlobalSearch />
@@ -32,7 +34,8 @@ export function NexusTopbar() {
           <div className="hidden sm:block">
             <ConnectionStatus />
           </div>
-          <div className="sm:hidden">
+          {/* On the smallest phones there's no room; the same status is in Settings. */}
+          <div className="max-[379px]:hidden sm:hidden">
             <ConnectionStatus compact />
           </div>
           <Notifications />
@@ -40,7 +43,7 @@ export function NexusTopbar() {
         </div>
       </div>
       <Sheet open={drawer} onOpenChange={setDrawer}>
-        <SheetContent side="left" className="w-[280px] p-0">
+        <SheetContent side="left" className="top-3! bottom-3! left-3! h-auto! w-[280px] overflow-hidden rounded-[27px] border p-0">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <div className="flex h-16 items-center px-5">
             <Wordmark />

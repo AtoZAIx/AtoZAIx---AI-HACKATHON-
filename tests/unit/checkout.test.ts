@@ -124,7 +124,7 @@ describe("approval and payment", () => {
 });
 
 describe("PayPal order body", () => {
-  it("has a breakdown that sums to the total and links the Nexus order", async () => {
+  it("has a breakdown that sums to the total and links the AtoZAIx order", async () => {
     const order = await lockedOrder();
     const body = buildOrderBody({ order, merchantName: "Bolt", productName: "Vertex", payee: null, returnUrl: "http://x/r", cancelUrl: "http://x/c" });
     const unit = body.purchase_units[0];
@@ -133,7 +133,7 @@ describe("PayPal order body", () => {
     expect(total).toBe(order.totalCents);
     expect(parts).toBe(total);
     expect(unit.custom_id).toBe(order.id);
-    expect(unit.invoice_id).toBe(`NEXUS-${order.id}`);
+    expect(unit.invoice_id).toBe(`ATOZAIX-${order.id}`);
     expect(body.intent).toBe("CAPTURE");
   });
 });

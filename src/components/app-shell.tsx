@@ -31,7 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <NexusSidebar collapsed={collapsed} onToggle={toggle} />
       <div className="flex min-w-0 flex-1 flex-col">
         <NexusTopbar />
-        <main id="main" className="min-w-0 flex-1 overflow-x-clip pb-20 md:pb-0">
+        <main id="main" className="min-w-0 flex-1 overflow-x-clip pb-28 md:pb-0">
           {children}
         </main>
       </div>

@@ -4,7 +4,7 @@
  * values per processing platform, card security code (CVV2MATCH), address
  * verification (AVS), and the Litle Automatic Account Updater.
  *
- * Used only by the Nexus payment simulator; no real card is ever charged,
+ * Used only by the AtoZAIx payment simulator; no real card is ever charged,
  * and full card numbers / security codes are never stored.
  *
  * Not simulated (they come from raw Payflow API parameters this checkout
