@@ -5,16 +5,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const remote = { sessions: new Map<string, unknown>(), orders: new Map<string, unknown>(), events: new Set<string>() };
+const remote = { sessions: new Map<string, unknown>(), orders: new Map<string, unknown>(), events: new Set<string>(), reads: 0, writes: 0 };
 const copy = <T,>(v: T): T => structuredClone(v);
 
 vi.mock("@/lib/nexus/supabase-sync", () => ({
   supabaseEnabled: () => true,
   supabaseConfig: () => ({ url: "https://fake.supabase.co", key: "x" }),
   supabaseLastError: () => null,
-  upsertSession: async (s: { id: string }) => (remote.sessions.set(s.id, copy(s)), true),
+  upsertSession: async (s: { id: string }) => (remote.writes++, remote.sessions.set(s.id, copy(s)), true),
   upsertOrder: async (o: { id: string }) => (remote.orders.set(o.id, copy(o)), true),
-  fetchSession: async (id: string) => copy(remote.sessions.get(id) ?? null),
+  fetchSession: async (id: string) => (remote.reads++, copy(remote.sessions.get(id) ?? null)),
   fetchOrder: async (id: string) => copy(remote.orders.get(id) ?? null),
   fetchOrderByPayPalId: async (pp: string) => copy([...remote.orders.values()].find((o) => (o as { payment?: { paypalOrderId?: string } }).payment?.paypalOrderId === pp) ?? null),
   fetchOrderByCaptureId: async (c: string) => copy([...remote.orders.values()].find((o) => (o as { payment?: { captureId?: string } }).payment?.captureId === c) ?? null),
@@ -55,6 +55,23 @@ describe("on Vercel (shared mode), every copy of the app sees the same deals", (
     const { order } = await lockDealAndPrepareOrder(session.id, done.result!.recommendedOfferId!);
     otherServer();
     expect((await store.getOrder(order.id))?.status).toBe("awaiting_approval");
+  });
+
+  it("a live negotiation doesn't re-read Supabase for every message, and its result is saved before it's shown", async () => {
+    const { session } = await createSession("noise cancelling headphones for travel under $400");
+    remote.reads = 0;
+    remote.writes = 0;
+    let events = 0;
+    let savedWhenShown = false;
+    for await (const e of streamNegotiation(session.id)) {
+      events++;
+      if (e.type === "result") savedWhenShown = (remote.sessions.get(session.id) as { status: string }).status === "negotiated";
+    }
+    expect(events).toBeGreaterThan(20);
+    expect(remote.reads).toBeLessThan(5); // was one read per message
+    expect(savedWhenShown).toBe(true); // "Choose this deal" on another server finds the result
+    otherServer();
+    expect((await store.getSession(session.id))?.status).toBe("negotiated");
   });
 
   it("a server with an old copy in memory reads the latest one, and doesn't overwrite newer changes", async () => {

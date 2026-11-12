@@ -70,6 +70,33 @@ const hydrated = globalThis as unknown as { __nexusHydrated?: { sessions?: boole
  */
 export const sharedStore = () => db.supabaseEnabled() && (Boolean(process.env.VERCEL) || process.env.NEXUS_SHARED_STORE === "1");
 
+/**
+ * Burst mode, for the live negotiation in shared mode: dozens of updates come
+ * from one server in a few seconds. Re-reading Supabase before each one is
+ * wasted time, so it re-reads at most every 3 seconds (still noticing a
+ * restart from elsewhere), saves in the background (latest copy only), and
+ * flushSession() waits for every save before the result is shown.
+ */
+interface Burst {
+  lastRead: number;
+  writing: Promise<unknown> | null;
+  dirty: boolean;
+}
+const bursts = (globalThis as unknown as { __nexusBursts?: Map<string, Burst> }).__nexusBursts ?? new Map<string, Burst>();
+(globalThis as unknown as { __nexusBursts?: Map<string, Burst> }).__nexusBursts = bursts;
+
+function kickBurstWrite(id: string) {
+  const b = bursts.get(id);
+  if (!b || b.writing || !b.dirty) return;
+  const s = state().sessions.get(id);
+  b.dirty = false;
+  if (!s) return;
+  b.writing = db.upsertSession(clone(s)).finally(() => {
+    b.writing = null;
+    kickBurstWrite(id);
+  });
+}
+
 function scheduleSessionWrite(id: string) {
   if (!db.supabaseEnabled()) return;
   clearTimeout(pending.get(id));
@@ -94,6 +121,23 @@ async function flushSessionWrite(id: string) {
 }
 
 export const store = {
+  /** Start a burst of updates to one session from this server (the live negotiation). No-op outside shared mode. */
+  beginBurst(id: string): void {
+    if (sharedStore()) bursts.set(id, { lastRead: Date.now(), writing: null, dirty: false });
+  },
+  /** Wait until every update to this session is saved to Supabase. */
+  async flushSession(id: string): Promise<void> {
+    const b = bursts.get(id);
+    while (b && (b.writing || b.dirty)) {
+      if (b.writing) await b.writing;
+      else kickBurstWrite(id);
+    }
+  },
+  /** End the burst: everything is saved before this returns. */
+  async endBurst(id: string): Promise<void> {
+    await this.flushSession(id);
+    bursts.delete(id);
+  },
   async getSession(id: string): Promise<CommerceSession | null> {
     if (sharedStore()) {
       const fresh = await db.fetchSession<CommerceSession>(id);
@@ -116,14 +160,23 @@ export const store = {
   },
   /** Read-modify-write against the latest copy, so concurrent writers don't clobber each other. */
   async updateSession(id: string, mutate: (s: CommerceSession) => void): Promise<CommerceSession> {
-    if (sharedStore() || !state().sessions.has(id)) await this.getSession(id); // the latest copy, from Supabase
+    const burst = sharedStore() ? bursts.get(id) : undefined;
+    if (burst && Date.now() - burst.lastRead < 3000 && state().sessions.has(id)) {
+      // Burst: this server is the one writing; skip the re-read.
+    } else if (sharedStore() || !state().sessions.has(id)) {
+      await this.getSession(id); // the latest copy, from Supabase
+      if (burst) burst.lastRead = Date.now();
+    }
     const current = state().sessions.get(id);
     if (!current) throw new Error(`Session ${id} not found`);
     const next = clone(current);
     mutate(next);
     next.updatedAt = new Date().toISOString();
     state().sessions.set(id, clone(next));
-    if (sharedStore()) await db.upsertSession(next);
+    if (burst) {
+      burst.dirty = true;
+      kickBurstWrite(id);
+    } else if (sharedStore()) await db.upsertSession(next);
     else scheduleSessionWrite(id);
     return next;
   },

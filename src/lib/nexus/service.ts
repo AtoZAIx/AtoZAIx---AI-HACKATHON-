@@ -330,6 +330,7 @@ export async function* streamNegotiation(sessionId: string, signal?: AbortSignal
   const listings = await store.listListings();
   const pace = Number(process.env.NEXUS_PACE_MS ?? 380);
   let stale = false;
+  store.beginBurst(sessionId);
   try {
     const merchants = await liveMerchants();
     for await (const event of negotiate(start.intent, listings, { paceMs: pace, signal, merchants })) {
@@ -356,6 +357,8 @@ export async function* streamNegotiation(sessionId: string, signal?: AbortSignal
         }
       });
       if (stale || updated.negotiationRun !== run) return;
+      // The result must be saved before it's shown: "Choose this deal" may land on another server.
+      if (event.type === "result") await store.flushSession(sessionId);
       if (event.type === "offer" && event.offer.terms) {
         // Every store-agent offer is checked against its registered listing.
         const listing = listings.find((l) => l.id === event.offer.terms!.listingId) ?? null;
@@ -369,11 +372,14 @@ export async function* streamNegotiation(sessionId: string, signal?: AbortSignal
       yield event;
     }
   } catch (err) {
+    await store.endBurst(sessionId);
     await store.updateSession(sessionId, (s) => {
       if (s.negotiationRun === run) s.status = "failed";
     });
     yield { type: "error", error: err instanceof Error ? err.message : "Negotiation failed" };
     return;
+  } finally {
+    await store.endBurst(sessionId);
   }
   if (signal?.aborted) {
     await store.updateSession(sessionId, (s) => {
